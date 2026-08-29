@@ -6,8 +6,8 @@
  * - 共同收尾：校验选项、存储分支、渲染主屏
  * 依赖 AFFINITY_DELTA_SCHEMA / DELTA_SCHEMA 等 schema 与多条 system prompt。
  */
-import type { PluginSetupAPI } from '@proactive-ai/plugin-types'
-import type { FlowCtx } from '@proactive-ai/plugin-types'
+import type { PluginSetupAPI } from '@prisflow/proactiveai-plugin-types'
+import type { FlowCtx } from '@prisflow/proactiveai-plugin-types'
 import type { Ledger, WorldState } from '../ledger'
 import type { Rules } from '../rules'
 import type { Views } from '../views'

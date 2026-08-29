@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 修仙世界插件入口。
  *
  * 架构：工具边界 = 业务管线边界。
@@ -13,7 +13,7 @@
  *
  * 编译：esbuild --bundle → 单文件 CJS（userData/plugins/cultivation.js），宿主零改动。
  */
-import type { Plugin, PluginSetupAPI } from '@proactive-ai/plugin-types'
+import type { Plugin, PluginSetupAPI } from '@prisflow/proactiveai-plugin-types'
 import { createLedger } from './ledger'
 import { createRules } from './rules'
 import { createViews } from './views'

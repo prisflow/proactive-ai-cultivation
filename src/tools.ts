@@ -6,8 +6,8 @@
  * transformPrompt 为唯一转换点：UI 工具从 result.state 渲染树自做完整文本化（ui），
  * 执行结果文本走 text，失败走 success.error，无结果则全空（副作用完成）。
  */
-import type { PluginSetupAPI } from '@proactive-ai/plugin-types'
-import type { NonSilentToolDef, ToolResult, ToolPromptResult, ToolCallMeta, FlowResult } from '@proactive-ai/plugin-types'
+import type { PluginSetupAPI } from '@prisflow/proactiveai-plugin-types'
+import type { NonSilentToolDef, ToolResult, ToolPromptResult, ToolCallMeta, FlowResult } from '@prisflow/proactiveai-plugin-types'
 import type { Ledger } from './ledger'
 import type { Rules } from './rules'
 

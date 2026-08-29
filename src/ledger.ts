@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 持久化层：按对话分键读写 SQLite 分层存档（经 PluginSetupAPI.storage）。
  * 结构（v6）：
  * - meta       元数据（初始化/建角/死亡/回合数）
@@ -7,7 +7,7 @@
  * - pendingBranch 轻量分支预告（区分 battle/other，存简略 prob）
  * v6 变更：删 story 剧情层（改由宿主 messages 10 条单源，避免二义性）。
  */
-import type { PluginSetupAPI } from '@proactive-ai/plugin-types'
+import type { PluginSetupAPI } from '@prisflow/proactiveai-plugin-types'
 import type { Realm } from './constants'
 
 export interface WorldMeta {

@@ -1,13 +1,13 @@
-/**
+﻿/**
  * @fileoverview 世界/初始化管线模块
  * @description 提供 worldGenNodes 工厂与初始化流程的注册：
  * - worldGenNodes：世界骨架 → 出身/天资生成与重试 → 合审重写 的完整子链，供 create_world / era_rebirth 复用（NPC 由独立工具 generate_npcs 生成）
  * - registerGameFlows：注册 create_world / generate_npcs / create_character / reset_character / era_rebirth 五个 flow
  * 每个 LLM 节点均配有 system prompt、input 构造、JSON Schema 与 assign 键，配合 rules.* 做校验落库。
  */
-import type { PluginSetupAPI } from '@proactive-ai/plugin-types'
-import type { FlowNode } from '@proactive-ai/plugin-types'
-import type { FlowCtx } from '@proactive-ai/plugin-types'
+import type { PluginSetupAPI } from '@prisflow/proactiveai-plugin-types'
+import type { FlowNode } from '@prisflow/proactiveai-plugin-types'
+import type { FlowCtx } from '@prisflow/proactiveai-plugin-types'
 import type { Ledger, WorldState } from '../ledger'
 import type { Rules } from '../rules'
 import type { Views } from '../views'

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @fileoverview 图定义聚合入口（对外保持 `from './flows'` 不变）
  * @description 统一暴露 registerFlows 作为插件初始化时的唯一注册入口，内部按内聚度拆至 ./flows 子目录：
  * - game.ts：世界创建/角色创建/纪元轮回等初始化管线
@@ -6,7 +6,7 @@
  * - majorEvents.ts：十年大事件生成管线
  * 调用方（src/index.ts）只需 import { registerFlows } 即可完成全部 flow 注册。
  */
-import type { PluginSetupAPI } from '@proactive-ai/plugin-types'
+import type { PluginSetupAPI } from '@prisflow/proactiveai-plugin-types'
 import type { Ledger } from './ledger'
 import type { Rules } from './rules'
 import type { Views } from './views'

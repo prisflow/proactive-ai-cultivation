@@ -1,7 +1,7 @@
-/**
+﻿/**
  * 规则层类型定义：对外暴露的 Rules 契约。
  */
-import type { FlowCtx } from '@proactive-ai/plugin-types'
+import type { FlowCtx } from '@prisflow/proactiveai-plugin-types'
 import type { WorldState } from '../ledger'
 
 /**

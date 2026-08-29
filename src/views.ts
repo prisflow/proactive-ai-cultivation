@@ -1,8 +1,8 @@
-/**
+﻿/**
  * 渲染构造层：构造 UI 数据结构（widget 树），供图内 render 节点使用。
  * 宿主负责实际推送（落库 + webContents.send），本层只声明"长什么样"。
  */
-import type { FlowCtx } from '@proactive-ai/plugin-types'
+import type { FlowCtx } from '@prisflow/proactiveai-plugin-types'
 import type { WorldState } from './ledger'
 import type { Rules } from './rules'
 import { fmtTime } from './rules'

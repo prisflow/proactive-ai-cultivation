@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 分支抽检：轻量分支预告的匹配与纯概率抽样（已去硬校验，仅留映射）。
  */
 import type { WorldState, PendingBranch } from '../ledger'
@@ -73,7 +73,7 @@ export function validateBranchChoice(_choice: { options?: unknown[] } | undefine
   return null
 }
 
-export function makeApplyConfrontationBattle(ledger: import('../ledger').Ledger): (ctx: import('@proactive-ai/plugin-types').FlowCtx) => string | null {
+export function makeApplyConfrontationBattle(ledger: import('../ledger').Ledger): (ctx: import('@prisflow/proactiveai-plugin-types').FlowCtx) => string | null {
   return (ctx) => {
     const w = ctx.state._w as WorldState
     const d = ctx.data.battleConfrontation as { text?: string; dead?: boolean; delta?: { spiritStones?: number; cultivation?: number; breakthroughDelta?: number; hpDelta?: number; pills?: Array<Record<string, unknown>>; methods?: Array<Record<string, unknown>> } } | undefined

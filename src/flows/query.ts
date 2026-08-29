@@ -1,8 +1,8 @@
-/**
+﻿/**
  * 查询管线：game_query（纯静态 LLM 查询，不推时间，不渲染，按插件上下文流式文本回答）。
  */
-import type { PluginSetupAPI } from '@proactive-ai/plugin-types'
-import type { FlowCtx } from '@proactive-ai/plugin-types'
+import type { PluginSetupAPI } from '@prisflow/proactiveai-plugin-types'
+import type { FlowCtx } from '@prisflow/proactiveai-plugin-types'
 import type { Ledger, WorldState } from '../ledger'
 import type { Rules } from '../rules'
 import { initCtx } from './helpers'
