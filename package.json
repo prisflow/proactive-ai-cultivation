@@ -1,0 +1,16 @@
+{
+  "name": "proactive-ai-cultivation",
+  "version": "0.8.0",
+  "description": "修仙世界插件（TS 源码，esbuild 预编译为单文件 CJS 供宿主加载）",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --format=cjs --platform=node --outfile=dist/cultivation.js",
+    "deploy": "esbuild src/index.ts --bundle --format=cjs --platform=node --outfile=C:/Users/31100/AppData/Roaming/proactive-ai-desktop/plugins/cultivation.js && node scripts/sync-copies.js"
+  },
+  "devDependencies": {
+    "@proactive-ai/plugin-types": "file:../proactive-ai-desktop/plugin-types",
+    "esbuild": "^0.25.0",
+    "sql.js": "^1.14.2"
+  }
+}
