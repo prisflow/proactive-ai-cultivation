@@ -44,11 +44,8 @@ function failPrompt(toolName: string, error: string): ToolPromptResult {
   return { success: { toolName, error } }
 }
 
-function runFlow(api: PluginSetupAPI, flowName: string, input: unknown, meta: ToolCallMeta): Promise<{ ok: boolean; error?: string; result?: unknown }> {
-  return api.flow.run(flowName, input, {
-    conversationId: meta.conversationId,
-    contextId: meta.contextId,
-  }).then((res: FlowResult) => {
+function runFlow(api: PluginSetupAPI, flowName: string, input: unknown): Promise<{ ok: boolean; error?: string; result?: unknown }> {
+  return api.flow.run(flowName, input).then((res: FlowResult) => {
     if (!res.ok) return { ok: false, error: res.error || '游戏引擎执行失败' }
     // state.__render 由宿主 loader 挂载（最后一次渲染树），供 transformPrompt 做 UI 文本化
     const render = (res.state as { __render?: unknown } | undefined)?.__render
@@ -56,13 +53,13 @@ function runFlow(api: PluginSetupAPI, flowName: string, input: unknown, meta: To
   })
 }
 
-/** 世界状态变化后刷新慢变记忆卡（world_setting）：内容稳定时覆盖相同文本，不影响缓存前缀。 */
+/** 世界状态变化后刷新慢变世界卡（world_setting）：
+ * 渲染文本存入世界对象（storage 数据源，随 ledger.saveAll 持久化），
+ * 并注入头部稳定层（prompts.set，覆盖更新；内容不变时前缀逐字稳定，不影响缓存命中）。 */
 function refreshWorldSetting(api: PluginSetupAPI, ledger: Ledger, rules: Rules, meta: ToolCallMeta): void {
-  const w = ledger.getWorld(meta.conversationId ?? '')
-  api.memory.set('world_setting', rules.worldSetting(w), {
-    conversationId: meta.conversationId,
-    contextId: meta.contextId,
-  })
+  const w = ledger.getWorld(meta.conversationId)
+  w.worldSetting = rules.worldSetting(w)
+  api.prompts.set(w.worldSetting)
 }
 
 export function registerTools(api: PluginSetupAPI, ledger: Ledger, rules: Rules): void {
@@ -79,7 +76,7 @@ transformPrompt: (result: ToolResult) => {
         return uiPrompt('create_world', '[世界已创建]', state, '请紧跟 generate_npcs 调用 1 次生成 NPC 池（30人），然后 generate_major_events 生成首五十年大事件，完成后继续 create_character 建角，不可提前收轮')
       },
       run: (input: Record<string, unknown>, meta: ToolCallMeta) => {
-        return runFlow(api, 'create_world', input, meta).then((res) => {
+        return runFlow(api, 'create_world', input).then((res) => {
           if (res.ok) refreshWorldSetting(api, ledger, rules, meta)
           return res
         })
@@ -97,7 +94,7 @@ transformPrompt: (result: ToolResult) => {
         return uiPrompt('create_character', '[角色已创建]', state, '建角完成，世界管线全部就绪，调用 host_yield 收轮')
       },
       run: (input: Record<string, unknown>, meta: ToolCallMeta) => {
-        return runFlow(api, 'create_character', input, meta).then((res) => {
+        return runFlow(api, 'create_character', input).then((res) => {
           if (res.ok) refreshWorldSetting(api, ledger, rules, meta)
           return res
         })
@@ -121,31 +118,7 @@ transformPrompt: (result: ToolResult) => {
         return uiPrompt('reset_character', '[角色已重置] 已保留世界，仅重建角色。', state, '角色重建完成，调用 host_yield 收轮')
       },
       run: (input: Record<string, unknown>, meta: ToolCallMeta) => {
-        return runFlow(api, 'reset_character', input, meta).then((res) => {
-          if (res.ok) refreshWorldSetting(api, ledger, rules, meta)
-          return res
-        })
-      },
-    },
-    {
-      name: 'era_rebirth',
-      description: '百年轮回：推演指定时间后在原世界脉络上演化生成新世界与新角色，保留纪元史（同一时间线多周目）。玩家说"百年后/千年后/XX年后转世"时调用；不清空历史，只清本世角色与当前事件。',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          text: { type: 'string', description: '玩家输入原文（含时间与新世愿望）' },
-        },
-        required: ['text'],
-      },
-      silent: false,
-      transformPrompt: (result: ToolResult) => {
-        if (!result.ok) return failPrompt('era_rebirth', result.error)
-        const state = (result.result as { render?: unknown })?.render
-        // 纪元轮回：内部已演化新世界并建角，但 NPC 池已清空——需紧跟 generate_npcs 重建 NPC 池后再收轮
-        return uiPrompt('era_rebirth', '[纪元轮回] 已度过指定时间，新世界与新身已就绪。', state, '纪元轮回完成，新世界与新角色已就绪，但 NPC 池已清空：立即调用 generate_npcs 重建 NPC 池，完成后调用 host_yield 收轮')
-      },
-      run: (input: Record<string, unknown>, meta: ToolCallMeta) => {
-        return runFlow(api, 'era_rebirth', input, meta).then((res) => {
+        return runFlow(api, 'reset_character', input).then((res) => {
           if (res.ok) refreshWorldSetting(api, ledger, rules, meta)
           return res
         })
@@ -171,13 +144,10 @@ transformPrompt: (result: ToolResult) => {
       },
       run: (input: Record<string, unknown>, meta: ToolCallMeta) => {
         return api.flow
-          .run('game_turn', input, {
-            conversationId: meta.conversationId,
-            contextId: meta.contextId,
-          })
+          .run('game_turn', input)
           .then((res: FlowResult) => {
             if (!res.ok) return { ok: false, error: res.error || '游戏引擎执行失败' }
-            const w = ledger.getWorld(meta.conversationId ?? '')
+            const w = ledger.getWorld(meta.conversationId)
             refreshWorldSetting(api, ledger, rules, meta)
             const render = (res.state as { __render?: unknown } | undefined)?.__render
             return { ok: true, result: { state: res.state, render, meta: { turns: w.meta.turns, dead: w.meta.dead } } }
@@ -195,9 +165,9 @@ transformPrompt: (result: ToolResult) => {
         return { success: { toolName: 'generate_npcs' }, result: { text: count ? `[NPC 已生成] 当前共 ${count} 名` : '[NPC 已生成]' } }
       },
       run: async (input: Record<string, unknown>, meta: ToolCallMeta) => {
-        const res = await runFlow(api, 'generate_npcs', input, meta)
+        const res = await runFlow(api, 'generate_npcs', input)
         if (!res.ok) return res
-        const w = ledger.getWorld(meta.conversationId ?? '')
+        const w = ledger.getWorld(meta.conversationId)
         refreshWorldSetting(api, ledger, rules, meta)
         return { ok: true, result: { count: w.stats.characters.length } }
       },
@@ -223,9 +193,9 @@ transformPrompt: (result: ToolResult) => {
         }
       },
       run: async (input: Record<string, unknown>, meta: ToolCallMeta) => {
-        const res = await runFlow(api, 'generate_major_events', input, meta)
+        const res = await runFlow(api, 'generate_major_events', input)
         if (!res.ok) return res
-        const w = ledger.getWorld(meta.conversationId ?? '')
+        const w = ledger.getWorld(meta.conversationId)
         refreshWorldSetting(api, ledger, rules, meta)
         return { ok: true, result: { count: w.majorEvents.length, characterCreated: w.meta.created } }
       },
@@ -248,10 +218,7 @@ transformPrompt: (result: ToolResult) => {
       },
       run: (input: Record<string, unknown>, meta: ToolCallMeta) =>
         api.flow
-          .run('game_query', input, {
-            conversationId: meta.conversationId,
-            contextId: meta.contextId,
-          })
+          .run('game_query', input)
           .then((res) => {
             if (!res.ok) return { ok: false, error: res.error || '查询失败' }
             const ans = (res.data as Record<string, unknown>)?.queryAnswer as string | undefined

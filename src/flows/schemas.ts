@@ -482,15 +482,3 @@ export const REVIEW_SCHEMA = {
   required: ['score', 'feedback', 'pass'],
   description: '评审结果',
 }
-
-/** 纪元推演年数 schema */
-export const ERA_YEARS_SCHEMA = {
-  type: 'object',
-  properties: {
-    years: { type: 'number', minimum: 1, description: '推演年数' },
-  },
-  required: ['years'],
-  description: '纪元推演年数',
-}
-
-/** @deprecated npcSystem/buildNpcInput 已迁移至 src/prompts.ts */

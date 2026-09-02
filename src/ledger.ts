@@ -131,6 +131,8 @@ export interface WorldState {
   pendingBranch: PendingBranch | null
   originPool: Record<string, unknown>[]
   talentPool: Record<string, unknown>[]
+  /** 慢变世界状态卡渲染文本（rules.worldSetting 产物，头部注入数据源）。 */
+  worldSetting: string
 }
 
 /** 初始世界状态（新档）。 */
@@ -149,6 +151,7 @@ export function newWorld(): WorldState {
     pendingBranch: null,
     originPool: [],
     talentPool: [],
+    worldSetting: '',
   }
 }
 
@@ -181,9 +184,6 @@ export function createLedger(api: PluginSetupAPI): Ledger {
       w = newWorld()
       worlds.set(cid, w)
     }
-    // 删旧档 story/memory 兜底（v5->v6）
-    delete (w as unknown as Record<string, unknown>).story
-    delete (w as unknown as Record<string, unknown>).memory
     return w
   }
 

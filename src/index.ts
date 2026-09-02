@@ -30,7 +30,7 @@ const COMPACT_SYSTEM =
 const plugin: Plugin = {
   id: 'cultivation',
   name: '修仙世界',
-  version: '2.0.0',
+  version: '0.5.1',
   description: '数值修仙世界：境界阶梯/功法/丹药/术法量化，大事件驱动叙事，NPC 池与道侣系统，战败即死。',
   setup(api: PluginSetupAPI) {
     const ledger = createLedger(api)
@@ -45,13 +45,12 @@ const plugin: Plugin = {
       role: 'sub',
       description: '修仙文字游戏：仅当用户明确想进入/开始修仙世界、玩修仙游戏、或在修仙世界内继续行动时进入；问候/闲聊/无关话题不要进入，直接文本回复。',
       initialPrompt: PROTOCOL_PROMPT,
-      toolNames: ['create_world', 'create_character', 'reset_character', 'era_rebirth', 'game_turn', 'game_query', 'generate_major_events', 'generate_npcs'],
+      toolNames: ['create_world', 'create_character', 'reset_character', 'game_turn', 'game_query', 'generate_major_events', 'generate_npcs'],
       compaction: {
         summaryPrompt: COMPACT_SYSTEM,
         summarySlot: 'game_lore',
         summaryLabel: '【剧情史】',
-        prefixSlots: ['world_setting', 'game_lore'],
-        tokenBudget: 60000,
+        prefixSlots: ['game_lore'],
         keepTokens: 8000,
         allowResummarize: true,
       },

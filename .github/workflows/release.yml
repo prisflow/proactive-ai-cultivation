@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build bundle
+        run: pnpm build   # esbuild → dist/cultivation.js
+
+      # plugin.json 的 version 对齐 tag（v 前缀去除）
+      - name: Sync plugin.json version from tag
+        shell: bash
+        env:
+          TAG_VERSION: ${{ github.ref_name }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            const m = JSON.parse(fs.readFileSync('plugin.json', 'utf-8'));
+            m.version = process.env.TAG_VERSION.replace(/^v/, '');
+            fs.writeFileSync('plugin.json', JSON.stringify(m, null, 2));
+          "
+
+      # 打包插件 zip：entry js + plugin.json 平铺在 zip 根（宿主 importPluginFromZip 期望的结构）
+      - name: Package plugin zip
+        shell: bash
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          mkdir -p release-pkg
+          cp dist/cultivation.js release-pkg/cultivation.js
+          cp plugin.json release-pkg/plugin.json
+          cd release-pkg
+          zip -r "../cultivation-${TAG_NAME#v}.zip" .
+
+      - name: Create Release & Upload zip
+        uses: softprops/action-gh-release@v2
+        with:
+          files: cultivation-*.zip

@@ -21,13 +21,6 @@ export function makeApplyBreakthrough(ledger: Ledger): (ctx: FlowCtx) => string 
     const extraCultivation = typeof d.extraCultivation === 'number' && Number.isFinite(d.extraCultivation) ? Math.max(0, Math.floor(d.extraCultivation)) : 0
     const nextRateBonus = typeof d.nextRateBonus === 'number' && Number.isFinite(d.nextRateBonus) ? d.nextRateBonus : 0
     const cap = cultivationCap(w)
-    // 临时调试日志：记录落库前 success 与 advanceRealm 调用（下次突破后查）
-    try {
-      const fs = require('fs') as typeof import('fs')
-      fs.appendFileSync('C:\\Users\\31100\\AppData\\Local\\Temp\\breakthrough-debug.log',
-        `[${new Date().toISOString()}] APPLY success=${calc.success} isMajor=${calc.isMajor} realm=${w.stats.realm} stage=${w.stats.realmStage} cultivation=${w.stats.cultivation} extraCultivation=${extraCultivation} -> ` +
-        (calc.success ? 'advanceRealm 调用\n' : '不 advanceRealm（失败分支）\n'), 'utf8')
-    } catch {}
     // 突破丹/剧情加成（breakBonus）只在突破大境界时消耗；小层突破（isMajor=false）保留
     const consumeBonus = calc.isMajor !== false
     if (calc.success) {
@@ -35,12 +28,6 @@ export function makeApplyBreakthrough(ledger: Ledger): (ctx: FlowCtx) => string 
       if (consumeBonus) w.stats.breakBonus = 0
       if (extraCultivation > 0) w.stats.cultivation = Math.min(extraCultivation, cap)
       advanceRealm(w)
-      // 临时调试日志：advanceRealm 后结果
-      try {
-        const fs = require('fs') as typeof import('fs')
-        fs.appendFileSync('C:\\Users\\31100\\AppData\\Local\\Temp\\breakthrough-debug.log',
-          `[${new Date().toISOString()}] AFTER realm=${w.stats.realm} stage=${w.stats.realmStage} cultivation=${w.stats.cultivation} breakBonus=${w.stats.breakBonus}\n`, 'utf8')
-      } catch {}
     } else {
       w.stats.cultivation = 0
       if (consumeBonus) w.stats.breakBonus = 0

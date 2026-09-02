@@ -127,13 +127,6 @@ export function registerTurnFlows(api: PluginSetupAPI, ledger: Ledger, rules: Ru
                   const success = Math.random() < rate
                   ;(ctx.data as Record<string, unknown>).breakthroughCalc = { rate, talentBonus, base, breakBonus, success, isMajor: (calc as { isMajor?: boolean }).isMajor }
                   const cap = rules.cultivationCap(w)
-                  // 临时调试日志：记录 rules 结果与掷骰（下次突破后查）
-                  try {
-                    const fs = require('fs') as typeof import('fs')
-                    fs.appendFileSync('C:\\Users\\31100\\AppData\\Local\\Temp\\breakthrough-debug.log',
-                      `[${new Date().toISOString()}] realm=${w.stats.realm} stage=${w.stats.realmStage} cultivation=${w.stats.cultivation}/${cap} ` +
-                      `rate=${rate} success=${success} isMajor=${(calc as { isMajor?: boolean }).isMajor} talents=${(w.stats.talents || []).map((t) => t.quality).join(',')} breakBonus=${w.stats.breakBonus}\n`, 'utf8')
-                  } catch {}
                   if (w.stats.cultivation < cap) return `修为不足：${w.stats.cultivation}/${cap}，请先修炼`
                   return
                 },

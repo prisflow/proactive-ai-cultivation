@@ -1,8 +1,8 @@
 ﻿/**
  * @fileoverview 世界/初始化管线模块
  * @description 提供 worldGenNodes 工厂与初始化流程的注册：
- * - worldGenNodes：世界骨架 → 出身/天资生成与重试 → 合审重写 的完整子链，供 create_world / era_rebirth 复用（NPC 由独立工具 generate_npcs 生成）
- * - registerGameFlows：注册 create_world / generate_npcs / create_character / reset_character / era_rebirth 五个 flow
+ * - worldGenNodes：世界骨架 → 出身/天资生成与重试 → 合审重写 的完整子链，供 create_world 复用（NPC 由独立工具 generate_npcs 生成）
+ * - registerGameFlows：注册 create_world / generate_npcs / create_character / reset_character 四个 flow
  * 每个 LLM 节点均配有 system prompt、input 构造、JSON Schema 与 assign 键，配合 rules.* 做校验落库。
  */
 import type { PluginSetupAPI } from '@prisflow/proactiveai-plugin-types'
@@ -13,12 +13,11 @@ import type { Rules } from '../rules'
 import type { Views } from '../views'
 import { initCtx, resetWorld, resetCharacter } from './helpers'
 import { characterCreationNodes } from './character'
-import { WORLD_BASE_SCHEMA, ORIGINS_SCHEMA, TALENTS_SCHEMA, REVIEW_SCHEMA, ERA_YEARS_SCHEMA, npcBatchSchema } from './schemas'
+import { WORLD_BASE_SCHEMA, ORIGINS_SCHEMA, TALENTS_SCHEMA, REVIEW_SCHEMA, npcBatchSchema } from './schemas'
 import { WORLD_BASE_SYSTEM, ORIGINS_SYSTEM, TALENTS_SYSTEM, ORIGINS_RETRY_SYSTEM, TALENTS_RETRY_SYSTEM, REVIEW_STARTER_COMBINED_SYSTEM, reviewStarterCombinedInput, npcSystem, buildNpcInput } from '../prompts'
-import { newWorld } from '../ledger'
 
 /**
- * 世界生成节点链工厂（create_world / era_rebirth 共用）
+ * 世界生成节点链工厂（create_world 专用）
  * @param rules - 规则集，提供 applyWorldBase/applyNpcPool/applyOrigins/applyTalents 等校验落库方法及 parseOriginPool 解析
  * @returns FlowNode[] 世界生成完整链路：世界骨架 → NPC 池 → 出身 → 天资 → 合审重写
  * @description 按序生成世界观与初始资源，含出身/天资的单次重试与评审驱动的二次重写，确保内容质量与数值合规
@@ -238,7 +237,7 @@ export function worldGenNodes(rules: Rules): FlowNode[] {
  * @param ledger - 世界账本
  * @param rules - 规则集
  * @param views - 视图构建器
- * @description 注册 create_world、create_character、reset_character、era_rebirth 四个流程，供前端按 flow 名触发
+ * @description 注册 create_world、create_character、reset_character 四个流程，供前端按 flow 名触发
  */
 export function registerGameFlows(api: PluginSetupAPI, ledger: Ledger, rules: Rules, views: Views): void {
   api.flow.register({
@@ -302,51 +301,6 @@ export function registerGameFlows(api: PluginSetupAPI, ledger: Ledger, rules: Ru
       // [static] 角色重置：仅清空角色维度，保留世界/出身池/天资池/时间 | 规则: resetCharacter
       { type: 'static', fn: resetCharacter },
       // [subflow] 建角子链：重走选角与开场 | 依赖 characterCreationNodes
-      ...characterCreationNodes(rules, views),
-    ],
-    requireRender: true,
-  })
-
-  api.flow.register({
-    name: 'era_rebirth',
-    nodes: [
-      // [static] 上下文初始化：加载 WorldState | 规则: initCtx(ledger)
-      { type: 'static', fn: initCtx(ledger) },
-      // [llm] 年数推演：解析玩家输入中的推演年数，未提及默认 100 | prompt: 时间推演器 system | schema: {years:number} | assign: eraYears
-      {
-        type: 'llm',
-        system: '你是时间推演器。根据玩家输入，判断要推演的年数（若未提及则默认100年），只输出 JSON {years: number}。',
-        input: (ctx: FlowCtx) => `玩家输入：${(ctx.input as { text?: string })?.text || ''}\n请判断推演年数，未提及则100。`,
-        schema: ERA_YEARS_SCHEMA,
-        assign: 'eraYears',
-      },
-      // [static] 纪元切换落库：按年数推进 timeMonth/寿命，保留 log 与时间，其余重置为新世界 | 读 eraYears | 规则: 内联纪元重置逻辑
-      {
-        type: 'static',
-        fn: (ctx: FlowCtx): string | void => {
-          const y = (ctx.data.eraYears as { years?: number })?.years
-          const years = Number.isInteger(y) && (y as number) > 0 ? (y as number) : 100
-          const w = ctx.state._w as WorldState
-          const prevName = w.stats.name || '无名'
-          const prevWorld = JSON.stringify(w.stats.world).slice(0, 800)
-          const months = years * 12
-          w.stats.timeMonth += months
-          w.stats.lifespan -= years
-          const fresh = newWorld()
-          const keptTime = w.stats.timeMonth
-          w.meta = { initialized: false, created: false, dead: false, turns: 0 }
-          w.stats = { ...fresh.stats, timeMonth: keptTime }
-          w.majorEvents = []
-          w.originPool = []
-          w.talentPool = []
-          ledger.saveAll()
-        },
-      },
-      // [subflow] 世界生成子链：基于新时间点重新生成世界与出身/天资（NPC 池已清空，由 LLM 调度器调 generate_npcs 重新生成）
-      ...worldGenNodes(rules),
-      // [render] 世界屏渲染：展示新纪元世界预览 | 依赖 worldGenNodes 产出
-      { type: 'render', build: views.buildWorldScreen },
-      // [subflow] 建角子链：紧接世界屏后直接进入新角色创建与开场
       ...characterCreationNodes(rules, views),
     ],
     requireRender: true,

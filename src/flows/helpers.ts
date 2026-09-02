@@ -3,7 +3,6 @@
  * @description 提供所有流程共享的静态节点辅助函数，职责包括：
  * - 将 Ledger 中的世界状态加载到 FlowCtx（initCtx）
  * - 全量重置世界/角色状态（resetWorld / resetCharacter）
- * - 纪元轮回的时间推进与归档准备（prepareEraRebirth）
  * 本文件仅依赖 ledger，不含任何 LLM 或业务校验逻辑，供 game.ts / turn.ts / majorEvents.ts 等流程复用。
  */
 import type { Ledger, WorldState } from '../ledger'
@@ -70,35 +69,3 @@ export function resetCharacter(ctx: { state: Record<string, unknown> }): void {
   w.stats.breakBonus = 0
   w.pendingBranch = null
   }
-
-/**
- * 百年轮回准备：基于原世界演化（时间推进 + 保留纪元史 + 清档重建）
- * @param ctx - 流程上下文，需包含 ctx.state._w 与 ctx.data
- * @param years - 推演年数（至少 1 年，实际按月换算）
- * @param ledger - 账本实例（当前实现未直接使用，保留扩展）
- * @returns void | string，正常返回 void，异常可返回错误文本阻断流程
- * @description 供 era_rebirth 流程复用：累加 timeMonth、扣减 lifespan、归档上纪元世界摘要、保留 log 与时间，其余重置为 newWorld；纪元史由宿主记忆层维护
- */
-export function prepareEraRebirth(ctx: { state: Record<string, unknown>; input?: unknown; data: Record<string, unknown> }, years: number, ledger: Ledger): string | void {
-  const w = ctx.state._w as WorldState
-  const months = Math.max(12, years * 12)
-  // 1. 时间推演（复用 advanceTime 逻辑需通过 rules；此处仅累加时间与寿元，事件/NPC 演化由后续 LLM 基于旧世界文本推演）
-  w.stats.timeMonth += months
-  w.stats.lifespan -= months / 12
-  if (w.stats.lifespan <= 0 && !w.meta.dead) {
-    w.meta.dead = false
-  }
-  // 2. 归档上纪元
-  const prevName = w.stats.name || '无名'
-  const prevWorld = JSON.stringify(w.stats.world).slice(0, 800)
-  // 3. 选择性重置：保留 timeMonth，重置角色系与当前事件/战斗，保留纪元史
-  const fresh = newWorld()
-  const keptTime = w.stats.timeMonth
-  w.meta = { initialized: false, created: false, dead: false, turns: 0 }
-  w.stats = { ...fresh.stats, timeMonth: keptTime }
-  w.majorEvents = []
-  // 4. 纪元史由宿主通用记忆层维护，不再写入插件 memory
-  // 旧大事件归档
-  ctx.data.eraPrevWorld = prevWorld
-  ctx.data.eraYears = years
-}
