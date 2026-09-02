@@ -1,6 +1,6 @@
 {
   "name": "proactive-ai-cultivation",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "修仙世界插件（TS 源码，esbuild 预编译为单文件 CJS 供宿主加载）",
   "private": true,
   "type": "commonjs",
