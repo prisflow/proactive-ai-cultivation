@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@prisflow/proactiveai-plugin-types':
-        specifier: file:../proactive-ai-desktop/plugin-types
-        version: file:../proactive-ai-desktop/plugin-types
+        specifier: ^0.2.0
+        version: 0.2.0
       esbuild:
         specifier: ^0.25.0
         version: 0.25.12
@@ -176,8 +176,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@prisflow/proactiveai-plugin-types@file:../proactive-ai-desktop/plugin-types':
-    resolution: {directory: ../proactive-ai-desktop/plugin-types, type: directory}
+  '@prisflow/proactiveai-plugin-types@0.2.0':
+    resolution: {integrity: sha512-vb99dwDCwbUx6h8+3ZnQnyB87wzW3qxY9/y1KF0ajHaVbkakcHr9bW7/9ayYOb24FubjEWwe8tF2mhrpYVkTFA==}
 
   esbuild@0.25.12:
     resolution: {integrity: sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg==}
@@ -267,7 +267,7 @@ snapshots:
   '@esbuild/win32-x64@0.25.12':
     optional: true
 
-  '@prisflow/proactiveai-plugin-types@file:../proactive-ai-desktop/plugin-types': {}
+  '@prisflow/proactiveai-plugin-types@0.2.0': {}
 
   esbuild@0.25.12:
     optionalDependencies:

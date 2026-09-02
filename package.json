@@ -9,7 +9,7 @@
     "deploy": "esbuild src/index.ts --bundle --format=cjs --platform=node --outfile=C:/Users/31100/AppData/Roaming/proactive-ai-desktop/plugins/cultivation.js && node scripts/sync-copies.js"
   },
   "devDependencies": {
-    "@prisflow/proactiveai-plugin-types": "file:../proactive-ai-desktop/plugin-types",
+    "@prisflow/proactiveai-plugin-types": "^0.2.0",
     "esbuild": "^0.25.0",
     "sql.js": "^1.14.2"
   }
