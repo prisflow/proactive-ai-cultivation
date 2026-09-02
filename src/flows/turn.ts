@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @fileoverview 主推进管线模块
  * @description 实现 game_turn 流程，已并入冲突分支抽检与战斗实写逻辑：
  * - 常规回合：TURN_SYSTEM 生成剧情 → 突破分支或常规落库 → 生成下轮选项

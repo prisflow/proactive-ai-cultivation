@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 建角结算：AI 选定出身+抽3天资后落位（出身独占资源，天资纯词条 9抽3）。
  */
 import type { FlowCtx } from '@prisflow/proactiveai-plugin-types'

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @fileoverview 十年大事件生成管线模块
  * @description 每十年生成 5-10 条未来大事件（majorEvents），供世界推演与 turn 阶段的 eventRef 引用。
  * 导出 makeApplyDecadalEvents 工厂与 registerMajorEventsFlows 注册函数，负责 LLM 生成 → 校验落库 → 结果回写。

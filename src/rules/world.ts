@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 世界生成结算：世界骨架、NPC 池、出身池、天资池（已去硬校验，仅留转换映射）。
  */
 import type { FlowCtx } from '@prisflow/proactiveai-plugin-types'

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 持久化层：按对话分键读写 SQLite 分层存档（经 PluginSetupAPI.storage）。
  * 结构（v6）：
  * - meta       元数据（初始化/建角/死亡/回合数）

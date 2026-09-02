@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 回合结算：叙事、大事件、修炼/突破/切主修、搜刮、好感、道侣、记忆（仅保留6条时序硬校验，其余交由 schema/评审）。
  */
 import type { FlowCtx } from '@prisflow/proactiveai-plugin-types'

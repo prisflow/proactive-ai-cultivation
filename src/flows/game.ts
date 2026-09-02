@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @fileoverview 世界/初始化管线模块
  * @description 提供 worldGenNodes 工厂与初始化流程的注册：
  * - worldGenNodes：世界骨架 → 出身/天资生成与重试 → 合审重写 的完整子链，供 create_world 复用（NPC 由独立工具 generate_npcs 生成）

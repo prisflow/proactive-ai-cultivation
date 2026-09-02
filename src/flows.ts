@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @fileoverview 图定义聚合入口（对外保持 `from './flows'` 不变）
  * @description 统一暴露 registerFlows 作为插件初始化时的唯一注册入口，内部按内聚度拆至 ./flows 子目录：
  * - game.ts：世界创建/角色创建/纪元轮回等初始化管线

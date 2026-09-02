@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 工具协议层：LLM 可见的操作入口（记忆由宿主通用层单源，不在此维护）。
  * - create_world/create_character/reset_character/era_rebirth/generate_major_events  世界/角色管线
  * - game_turn               主推演（收 delta 含服丹/战斗/修炼/好感）

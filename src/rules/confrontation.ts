@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 分支抽检：轻量分支预告的匹配与纯概率抽样（已去硬校验，仅留映射）。
  */
 import type { WorldState, PendingBranch } from '../ledger'

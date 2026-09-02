@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 选择与开场校验、寿命检查（已去硬校验，仅留映射）。 */
 import type { FlowCtx } from '@prisflow/proactiveai-plugin-types'
 import type { Ledger, WorldState } from '../ledger'

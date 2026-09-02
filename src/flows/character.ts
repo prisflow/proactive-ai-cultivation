@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @fileoverview 建角子链模块
  * @description AI 一次性确定出身/天资/名字/性别 → 校验落位 → 生成开场剧情 → 渲染首屏。
  * 全部由 AI 决定，供 create_character / reset_character / era_rebirth 等上层 flow 协作复用。
