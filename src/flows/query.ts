@@ -36,11 +36,11 @@ export function registerQueryFlows(api: PluginSetupAPI, ledger: Ledger, rules: R
       // [static] 结果回写：将 LLM 的 answer 写入 ctx.data.queryAnswer 供 tool 透传
       {
         type: 'static',
-        fn: (ctx: FlowCtx): string | null => {
+        fn: (ctx: FlowCtx): string | void => {
           const d = ctx.data.query as { answer?: string } | undefined
           if (!d || typeof d.answer !== 'string' || !d.answer.trim()) return '查询回答为空'
           ctx.data.queryAnswer = d.answer.trim()
-          return null
+          return undefined
         },
       },
     ],

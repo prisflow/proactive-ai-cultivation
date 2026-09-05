@@ -1,91 +1,22 @@
 /**
- * 分支抽检：轻量分支预告的匹配与纯概率抽样（已去硬校验，仅留映射）。
+ * 战斗应用：game_battle 的 LLM 实写结果落账（delta/死亡/回合数）。
+ * （原风险分支匹配逻辑已随分支系统下线删除——战斗改由 LLM 按玩家意图路由到 game_battle 工具。）
  */
-import type { WorldState, PendingBranch } from '../ledger'
+import type { FlowCtx } from '@prisflow/proactiveai-plugin-types'
+import type { Ledger, WorldState } from '../ledger'
 
-export function matchBranchInput(inputText: string, pending: PendingBranch | null): { optionIndex: number; branchIndex: number } | null {
-  if (!pending || !pending.options.length) return null
-  const t = (inputText || '').trim()
-  if (!t) return null
-  for (let oi = 0; oi < pending.options.length; oi++) {
-    const opt = pending.options[oi]
-    const hitOption = t.includes(opt.text) || t.includes(`选项${oi + 1}`) || t.includes(`选${oi + 1}`) || t === opt.text
-    if (!opt.branches || opt.branches.length === 0) {
-      if (hitOption) return { optionIndex: oi, branchIndex: -1 }
-      continue
-    }
-    for (let bi = 0; bi < opt.branches.length; bi++) {
-      const b = opt.branches[bi]
-      if (t.includes(b.title) || t.includes(b.id) || t.includes(b.simpleDesc.slice(0, 8))) {
-        return { optionIndex: oi, branchIndex: bi }
-      }
-    }
-    if (hitOption) return { optionIndex: oi, branchIndex: -2 }
-  }
-  for (let oi = 0; oi < pending.options.length; oi++) {
-    const opt = pending.options[oi]
-    if (!opt.branches) continue
-    for (let bi = 0; bi < opt.branches.length; bi++) {
-      if (t === opt.branches[bi].title) return { optionIndex: oi, branchIndex: bi }
-    }
-  }
-  return null
-}
-
-export function pickBranch(branches: Array<{ prob: number }>): number {
-  const sum = branches.reduce((a, b) => a + Math.max(0, b.prob), 0)
-  if (sum <= 0) return Math.floor(Math.random() * branches.length)
-  let r = Math.random() * sum
-  for (let i = 0; i < branches.length; i++) {
-    const w = Math.max(0, branches[i].prob)
-    if (r < w) return i
-    r -= w
-  }
-  return branches.length - 1
-}
-
-export function resolvePendingBranchPick(inputText: string, w: WorldState): { kind: 'battle' | 'other'; title: string; simpleDesc: string } | null {
-  const pending = w.pendingBranch
-  if (!pending) return null
-  const match = matchBranchInput(inputText, pending)
-  if (!match) return null
-  const opt = pending.options[match.optionIndex]
-  if (!opt.branches || opt.branches.length === 0) return null
-  const pickedIdx = pickBranch(opt.branches)
-  const picked = opt.branches[pickedIdx]
-  return { kind: picked.kind, title: picked.title, simpleDesc: picked.simpleDesc }
-}
-
-export function consumePendingBranch(inputText: string, w: WorldState): { kind: 'battle' | 'other'; title: string; simpleDesc: string } | null {
-  const pending = w.pendingBranch
-  if (!pending) return null
-  const match = matchBranchInput(inputText, pending)
-  w.pendingBranch = null
-  if (!match) return null
-  const opt = pending.options[match.optionIndex]
-  if (!opt.branches || opt.branches.length === 0) return null
-  const pickedIdx = pickBranch(opt.branches)
-  const picked = opt.branches[pickedIdx]
-  return { kind: picked.kind, title: picked.title, simpleDesc: picked.simpleDesc }
-}
-
-export function validateBranchChoice(_choice: { options?: unknown[] } | undefined): string | null {
-  return null
-}
-
-export function makeApplyConfrontationBattle(ledger: import('../ledger').Ledger): (ctx: import('@prisflow/proactiveai-plugin-types').FlowCtx) => string | null {
+export function makeApplyBattle(ledger: Ledger): (ctx: FlowCtx) => string | null {
   return (ctx) => {
     const w = ctx.state._w as WorldState
-    const d = ctx.data.battleConfrontation as { text?: string; dead?: boolean; delta?: { spiritStones?: number; cultivation?: number; breakthroughDelta?: number; hpDelta?: number; pills?: Array<Record<string, unknown>>; methods?: Array<Record<string, unknown>> } } | undefined
-    const text = typeof d?.text === 'string' && d.text ? d.text : '战斗结束。'
-    const hpFromDelta = typeof d?.delta?.hpDelta === 'number' ? Math.round(d.delta.hpDelta) : undefined
-    const hpDelta = hpFromDelta ?? 0
+    const d = ctx.data.battle as { text?: string; dead?: boolean; delta?: { spiritStones?: number; cultivation?: number; breakthroughDelta?: number; hpDelta?: number; pills?: Array<Record<string, unknown>>; methods?: Array<Record<string, unknown>> }; options?: Array<{ text?: unknown }> } | undefined
+    const text = typeof d?.text === 'string' && d.text ? d.text : '战斗骤然爆发'
+    const hpDelta = typeof d?.delta?.hpDelta === 'number' ? Math.round(d.delta.hpDelta) : 0
     w.stats.hp += hpDelta
     if (w.stats.hp > w.stats.maxHp) w.stats.hp = w.stats.maxHp
     if (w.stats.hp <= 0 || d?.dead === true) {
       w.stats.hp = 0
       w.meta.dead = true
-      w.meta.deathCause = '战死'
+      w.meta.deathCause = '战斗'
       ledger.saveAll()
       return null
     }
@@ -129,7 +60,7 @@ export function makeApplyConfrontationBattle(ledger: import('../ledger').Ledger)
               name: String((m as Record<string, unknown>).name),
               grade,
               efficiency: 4,
-              techniques: techs.map((t) => ({ name: String(t.name || '无名'), description: String(t.description || ''), source: 'delta' })),
+              techniques: techs.map((t) => ({ name: String(t.name || '术法'), description: String(t.description || ''), source: 'delta' })),
               source: 'delta',
             } as never)
           }

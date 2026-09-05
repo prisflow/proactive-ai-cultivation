@@ -18,41 +18,6 @@ export interface Views {
 export function createViews(rules: Rules): Views {
   const statusOf = (w: WorldState): string => rules.fmtStatus(w)
 
-  function appendQuickBar(children: unknown[], w: WorldState): void {
-    const s = w.stats
-    const quick: unknown[] = []
-    const nonMain = s.methods.filter((m) => m.name !== s.mainMethod)
-    for (const m of nonMain.slice(0, 3)) {
-      quick.push({ component: 'Button', props: { content: `主修${m.name}`, action: { type: 'send', text: `主修${m.name}` } } })
-    }
-    if (s.mainMethod) {
-      for (const mo of [1, 3, 12] as const) {
-        quick.push({ component: 'Button', props: { content: `闭关${mo}月`, action: { type: 'send', text: `闭关${mo}月` } } })
-      }
-    }
-    if (s.cultivation >= rules.cultivationCap(w)) {
-      quick.push({ component: 'Button', props: { content: '突破', action: { type: 'send', text: '突破' } } })
-    }
-    if (quick.length) {
-      children.push({ component: 'Divider', props: {} })
-      children.push({ component: 'Text', props: { content: '快捷操作', size: 'sm' } })
-      for (let i = 0; i < quick.length; i += 3) {
-        children.push({ component: 'Row', props: { className: 'gap-2 flex-wrap' }, children: quick.slice(i, i + 3) })
-      }
-    }
-    // 丹药单行 per pill (1,3,全部) 与修炼分开
-    if (s.pills.length) {
-      children.push({ component: 'Divider', props: {} })
-      children.push({ component: 'Text', props: { content: '丹药', size: 'sm' } })
-      for (const p of s.pills.slice(0, 4)) {
-        const pillRow: unknown[] = []
-        if (p.amount >= 1) pillRow.push({ component: 'Button', props: { content: `服${p.name}×1`, action: { type: 'send', text: `服用${p.name}×1` } } })
-        if (p.amount >= 3) pillRow.push({ component: 'Button', props: { content: `服${p.name}×3`, action: { type: 'send', text: `服用${p.name}×3` } } })
-        if (p.amount > 1) pillRow.push({ component: 'Button', props: { content: `服${p.name}全部(${p.amount})`, action: { type: 'send', text: `服用${p.name}全部` } } })
-        if (pillRow.length) children.push({ component: 'Row', props: { className: 'gap-2 flex-wrap' }, children: pillRow })
-      }
-    }
-  }
 
   /** 世界观屏：大陆/地域/宗门/城镇/法则/传闻 + 大事件时间线。 */
   function buildWorldScreen(ctx: FlowCtx): { component: string; props: Record<string, unknown>; children: unknown[] } {
@@ -86,7 +51,7 @@ export function createViews(rules: Rules): Views {
   function buildFirstScreen(ctx: FlowCtx): { component: string; props: Record<string, unknown>; children: unknown[] } {
     const w = ctx.state._w as WorldState
     const s = w.stats
-    const opening = ctx.data.opening as { text: string; options: Array<{ text: string; risk: string }> } | undefined
+    const opening = ctx.data.opening as { text: string; options: Array<{ text: string; kind?: string }> } | undefined
     const opts = opening?.options || []
     const children: unknown[] = [
       { component: 'Text', props: { content: `名字「${s.name || '无名'}」· ${s.gender || ''}${s.temperament ? `·${s.temperament}` : ''} · ${s.location}`, size: 'lg' } },
@@ -101,7 +66,6 @@ export function createViews(rules: Rules): Views {
       children.push({ component: 'Divider', props: {} })
       children.push({ component: 'Text', props: { content: `附近之人：${nearbyFirst.slice(0, 5).map((c) => `${c.name}（${c.identity}）${affinityLabel(c.affinity)}${c.relationship !== '无' ? `·${c.relationship}` : ''}`).join('、')}`, size: 'sm' } })
     }
-    appendQuickBar(children, w)
     children.push({ component: 'Divider', props: {} })
     children.push({ component: 'Text', props: { content: '你欲何为？', size: 'sm' } })
     for (let i = 0; i < opts.length; i += 2) {
@@ -112,7 +76,7 @@ export function createViews(rules: Rules): Views {
         children: row.map((o) => ({
           component: 'Button',
           props: {
-            content: o.risk === '无' ? o.text : `${o.text}（${o.risk}风险）`,
+            content: o.text,
             action: { type: 'send', text: o.text },
           },
         })),
@@ -126,12 +90,13 @@ export function createViews(rules: Rules): Views {
     const w = ctx.state._w as WorldState
     if (w.meta.dead) return buildDeathScreen(ctx)
     const s = w.stats
-    // 战斗实写分支的 beat 来自 battleConfrontation，否则来自 turn
-    const battleBeat = ctx.data.battleConfrontation as { text?: string } | undefined
-    const beat = (battleBeat?.text ? battleBeat : ctx.data.turn as { text?: string } | undefined)
+    // 战斗实写分支：beat 优先 battleConfrontation（旧）/ battle（game_battle 工具）；
+    // 突破轮取 breakthrough（game_breakthrough 工具）；否则日常 turn
+    const battleBeat = (ctx.data.battleConfrontation ?? ctx.data.battle) as { text?: string } | undefined
+    const beat = (battleBeat?.text ? battleBeat : (ctx.data.breakthrough ?? ctx.data.turn) as { text?: string } | undefined)
     // 选项来源：常规路径说书人直接输出（turn.options），战斗路径战后生成（choice.options）
-    const opts = ((ctx.data.choice as { options?: Array<{ text: string; risk: string }> } | undefined)?.options
-      || (ctx.data.turn as { options?: Array<{ text: string; risk: string }> } | undefined)?.options
+    const opts = ((ctx.data.choice as { options?: Array<{ text: string; kind?: string }> } | undefined)?.options
+      || (ctx.data.turn as { options?: Array<{ text: string; kind?: string }> } | undefined)?.options
       || [])
     const children: unknown[] = [
       { component: 'Text', props: { content: `${rules.fmtRealm(w)} · ${s.location} · ${fmtTime(w)}`, size: 'lg' } },
@@ -161,7 +126,6 @@ export function createViews(rules: Rules): Views {
         children.push({ component: 'Text', props: { content: `道侣：${dao.map((c) => `${c.name}（${c.identity}）`).join('、')}`, size: 'sm' } })
       }
     }
-    appendQuickBar(children, w)
     if (opts.length) {
       children.push({ component: 'Divider', props: {} })
       children.push({ component: 'Text', props: { content: '你欲何为？', size: 'sm' } })
@@ -173,7 +137,7 @@ export function createViews(rules: Rules): Views {
           children: row.map((o) => ({
             component: 'Button',
             props: {
-              content: o.risk === '无' ? o.text : `${o.text}（${o.risk}风险）`,
+              content: o.text,
               action: { type: 'send', text: o.text },
             },
           })),

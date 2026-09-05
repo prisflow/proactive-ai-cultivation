@@ -44,7 +44,7 @@ function failPrompt(toolName: string, error: string): ToolPromptResult {
   return { success: { toolName, error } }
 }
 
-function runFlow(api: PluginSetupAPI, flowName: string, input: unknown): Promise<{ ok: boolean; error?: string; result?: unknown }> {
+function runFlow(api: PluginSetupAPI, flowName: string, input: unknown): Promise<ToolResult> {
   return api.flow.run(flowName, input).then((res: FlowResult) => {
     if (!res.ok) return { ok: false, error: res.error || '游戏引擎执行失败' }
     // state.__render 由宿主 loader 挂载（最后一次渲染树），供 transformPrompt 做 UI 文本化
@@ -126,7 +126,7 @@ transformPrompt: (result: ToolResult) => {
     },
     {
       name: 'game_turn',
-      description: '推进修仙世界剧情（时间 +任意月（可为0），按闭关时长；切主修/突破）：叙事推进进行中的大事件，搜刮丹药/功法为辅，好感/道侣/记忆在此表达，界面推送（渲染必达）。',
+      description: '推进修仙世界日常剧情（时间 +任意月（可为0），按闭关时长；切主修）：叙事推进进行中的大事件，搜刮丹药/功法为辅，好感/道侣/记忆在此表达，界面推送（渲染必达）。战斗遭遇请改调 game_battle；冲击突破请改调 game_breakthrough。',
       inputSchema: {
         type: 'object',
         properties: {
@@ -140,11 +140,69 @@ transformPrompt: (result: ToolResult) => {
         const state = (result.result as { render?: unknown })?.render
         const turns = (result.result as { meta?: { turns?: number; dead?: boolean } })?.meta
         if (turns?.dead) return uiPrompt('game_turn', '[身死道消] 玩家已死亡，此局结束。如需重新开始请调用 create_world。', state)
-        return uiPrompt('game_turn', `[本轮叙事已结束] 第${turns?.turns ?? '?'}回合已推送完毕。可终止本轮`, state, '本轮剧情已推送完毕，禁止再次调用 game_turn，立即调用 host_yield 收轮等待玩家下一条消息')
+        return uiPrompt('game_turn', '[UI 已推送]', state, '立即调用 host_yield 结束本轮。在此之前禁止调用任何工具、禁止输出任何文本。host_yield 之后等待玩家下一条消息。')
       },
       run: (input: Record<string, unknown>, meta: ToolCallMeta) => {
         return api.flow
           .run('game_turn', input)
+          .then((res: FlowResult) => {
+            if (!res.ok) return { ok: false, error: res.error || '游戏引擎执行失败' }
+            const w = ledger.getWorld(meta.conversationId)
+            refreshWorldSetting(api, ledger, rules, meta)
+            const render = (res.state as { __render?: unknown } | undefined)?.__render
+            return { ok: true, result: { state: res.state, render, meta: { turns: w.meta.turns, dead: w.meta.dead } } }
+          })
+      },
+    },
+    {
+      name: 'game_battle',
+      description: '战斗遭遇推演：玩家卷入敌对冲突、厮杀、围攻、护法之战等战斗场景时调用（替代 game_turn 推进本回合）。客观推演胜/逃/死，delta 结算战利品与损伤，界面推送（渲染必达）。日常非战斗剧情请用 game_turn。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: '玩家输入原文' },
+        },
+        required: ['text'],
+      },
+      silent: false,
+      transformPrompt: (result: ToolResult) => {
+        if (!result.ok) return failPrompt('game_battle', result.error)
+        const state = (result.result as { render?: unknown })?.render
+        const turns = (result.result as { meta?: { turns?: number; dead?: boolean } })?.meta
+        if (turns?.dead) return uiPrompt('game_battle', '[身死道消] 玩家已战死，此局结束。如需重新开始请调用 create_world。', state)
+        return uiPrompt('game_battle', '[UI 已推送]', state, '立即调用 host_yield 结束本轮。在此之前禁止调用任何工具、禁止输出任何文本。host_yield 之后等待玩家下一条消息。')
+      },
+      run: (input: Record<string, unknown>, meta: ToolCallMeta) => {
+        return api.flow
+          .run('game_battle', input)
+          .then((res: FlowResult) => {
+            if (!res.ok) return { ok: false, error: res.error || '游戏引擎执行失败' }
+            const w = ledger.getWorld(meta.conversationId)
+            refreshWorldSetting(api, ledger, rules, meta)
+            const render = (res.state as { __render?: unknown } | undefined)?.__render
+            return { ok: true, result: { state: res.state, render, meta: { turns: w.meta.turns, dead: w.meta.dead } } }
+          })
+      },
+    },
+    {
+      name: 'game_breakthrough',
+      description: '冲击突破：玩家修为已达当前境界上限（修为=cap）且意图冲击瓶颈/突破境界时调用，系统判定成败并推演突破叙事，界面推送（渲染必达）。修为未满或日常剧情请用 game_turn。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: '玩家输入原文' },
+        },
+        required: ['text'],
+      },
+      silent: false,
+      transformPrompt: (result: ToolResult) => {
+        if (!result.ok) return failPrompt('game_breakthrough', result.error)
+        const state = (result.result as { render?: unknown })?.render
+        return uiPrompt('game_breakthrough', '[UI 已推送]', state, '立即调用 host_yield 结束本轮。在此之前禁止调用任何工具、禁止输出任何文本。host_yield 之后等待玩家下一条消息。')
+      },
+      run: (input: Record<string, unknown>, meta: ToolCallMeta) => {
+        return api.flow
+          .run('game_breakthrough', input)
           .then((res: FlowResult) => {
             if (!res.ok) return { ok: false, error: res.error || '游戏引擎执行失败' }
             const w = ledger.getWorld(meta.conversationId)

@@ -1,7 +1,7 @@
 {
   "id": "cultivation",
   "name": "修仙世界",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "数值修仙世界：境界阶梯/功法/丹药/术法量化，大事件驱动叙事，NPC 池与道侣系统，战败即死。",
   "entry": "cultivation.js",
   "author": "prisflow",

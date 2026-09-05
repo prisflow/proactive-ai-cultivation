@@ -1,10 +1,10 @@
 /**
  * 持久化层：按对话分键读写 SQLite 分层存档（经 PluginSetupAPI.storage）。
- * 结构（v6）：
+ * 结构（v7）：
  * - meta       元数据（初始化/建角/死亡/回合数）
  * - stats      动态状态（境界/层/修为/寿元/时间/资源/功法/丹药/NPC 池）
  * - majorEvents 大事件时间线（待触发/进行中/已解决/失败）
- * - pendingBranch 轻量分支预告（区分 battle/other，存简略 prob）
+ * v7 变更：删 pendingBranch 风险分支预告（分支系统下线，改 LLM 判死 + 开放提示选项）。
  * v6 变更：删 story 剧情层（改由宿主 messages 10 条单源，避免二义性）。
  */
 import type { PluginSetupAPI } from '@prisflow/proactiveai-plugin-types'
@@ -104,31 +104,10 @@ export interface MajorEvent {
   status: 'pending' | 'active' | 'resolved' | 'failed'
 }
 
-/**
- * 待分支预告：上一轮抉择产生的 4 选项中带风险项的简略分支（区分战斗/剧情），下轮 game_turn 进入时抽检。
- * 仅存简略描述以省 token，完整叙事由下轮 turn/battle 节点再生成。
- */
-export interface PendingBranch {
-  turnId: number
-  options: Array<{
-    text: string
-    risk: string
-    branches?: Array<{
-      id: string
-      title: string
-      kind: 'battle' | 'other'
-      prob: number
-      simpleDesc: string
-      requiresTechnique?: string
-    }>
-  }>
-}
-
 export interface WorldState {
   meta: WorldMeta
   stats: WorldStats
   majorEvents: MajorEvent[]
-  pendingBranch: PendingBranch | null
   originPool: Record<string, unknown>[]
   talentPool: Record<string, unknown>[]
   /** 慢变世界状态卡渲染文本（rules.worldSetting 产物，头部注入数据源）。 */
@@ -148,7 +127,6 @@ export function newWorld(): WorldState {
       characters: [] as CharacterEntry[], npcGrowthMonths: 0, breakBonus: 0,
     },
     majorEvents: [],
-    pendingBranch: null,
     originPool: [],
     talentPool: [],
     worldSetting: '',

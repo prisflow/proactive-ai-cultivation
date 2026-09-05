@@ -25,14 +25,14 @@ export function characterCreationNodes(rules: Rules, views: Views): FlowNode[] {
       type: 'llm',
       system: CHAR_CREATE_SYSTEM,
       input: (ctx: FlowCtx) => {
-        const w = ctx.state._w as { stats: { world?: { name?: string } } }
-        return `玩家初输：${(ctx.input as { text?: string })?.text || ''}\n世界：${w.stats.world?.name || ''}\n\n出身池：\n${JSON.stringify(rules.parseOriginPool(ctx.state._w as never))}\n\n天资池（9条吉凶 6:3，需抽 3）：\n${JSON.stringify(rules.parseTalentPool(ctx.state._w as never))}`
+        // 世界骨架上下文由头部 worldSetting 状态卡承担（prompts.set），此处不再重复注入世界名
+        return `玩家初输：${(ctx.input as { text?: string })?.text || ''}\n\n出身池：\n${JSON.stringify(rules.parseOriginPool(ctx.state._w as never))}\n\n天资池（9条吉凶 6:3，需抽 3）：\n${JSON.stringify(rules.parseTalentPool(ctx.state._w as never))}`
       },
       schema: CHAR_CREATE_SCHEMA,
       assign: 'charCreate',
     },
     // [static] 落库校验：校验 charCreate 合法性并写入 WorldState（出身/天资/姓名/性别/初始属性） | 无 prompt/schema | 读 charCreate | 规则: rules.applyCharacter
-    { type: 'static', fn: rules.applyCharacter },
+    { type: 'static', fn: (ctx) => rules.applyCharacter(ctx) ?? undefined },
     // [llm] 开场剧情生成：基于已落库的 publicState 生成开场文本与 2-4 个初始选项 | prompt: OPENING_SYSTEM | schema: {text, options[{text, risk}]} | assign: opening
     {
       type: 'llm',
@@ -45,7 +45,7 @@ export function characterCreationNodes(rules: Rules, views: Views): FlowNode[] {
       assign: 'opening',
     },
     // [static] 开场校验：校验 opening 文本与选项数/风险等级合法性，写 log 并持久化 | 无 prompt/schema | 读 opening | 规则: rules.validateOpening
-    { type: 'static', fn: rules.validateOpening },
+    { type: 'static', fn: (ctx) => rules.validateOpening(ctx) ?? undefined },
     // [render] 首屏渲染：调用 views.buildFirstScreen 将开场剧情与选项渲染为首屏 | 无 prompt/schema/assign | 依赖 opening 已校验
     { type: 'render', build: views.buildFirstScreen },
   ]

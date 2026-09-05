@@ -62,7 +62,7 @@ export function makeApplyNpcPool(ledger: Ledger): (ctx: FlowCtx) => string | nul
       if (!name || seen.has(name)) continue
       const realm = typeof c.realm === 'string' && (REALM_ORDER as readonly string[]).includes(c.realm) ? c.realm as Realm : '凡人'
       seen.add(name)
-      const affinity = clampAffinity(Number(c.affinity))
+      const affinity = 0 // 世界人口初始一律陌生：好感只由互动（game_turn relationships）产生
       added.push({
         name,
         gender: typeof c.gender === 'string' && (c.gender === '男' || c.gender === '女') ? c.gender : '男',

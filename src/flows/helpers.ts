@@ -23,7 +23,7 @@ export function initCtx(ledger: Ledger) {
 /**
  * 重新开局：重置世界状态（转世重修，全量清空）
  * @param ctx - 流程上下文，需包含 ctx.state._w
- * @description 将 meta/stats/majorEvents/pendingBranch/story.log 全量重置为 newWorld 初始值，用于 create_world 流程的起点
+ * @description 将 meta/stats/majorEvents 全量重置为 newWorld 初始值，用于 create_world 流程的起点
  */
 export function resetWorld(ctx: { state: Record<string, unknown> }): void {
   const w = ctx.state._w as WorldState
@@ -35,7 +35,6 @@ export function resetWorld(ctx: { state: Record<string, unknown> }): void {
   w.meta.turns = 0
   w.stats = fresh.stats
   w.majorEvents = []
-  w.pendingBranch = null
 }
 
 /**
@@ -67,5 +66,4 @@ export function resetCharacter(ctx: { state: Record<string, unknown> }): void {
   w.stats.talents = null
   w.stats.pills = []
   w.stats.breakBonus = 0
-  w.pendingBranch = null
   }

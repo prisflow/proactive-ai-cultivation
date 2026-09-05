@@ -16,7 +16,7 @@ export function makeApplyBreakthrough(ledger: Ledger): (ctx: FlowCtx) => string 
   return (ctx: FlowCtx): string | null => {
     const w = ctx.state._w as WorldState
     const calc = ctx.data.breakthroughCalc as { rate: number; talentBonus: number; base: number; success: boolean; isMajor?: boolean } | undefined
-    const d = ctx.data.breakthrough as { text: string; extraCultivation?: number; nextRateBonus?: number } | undefined
+    const d = ctx.data.breakthrough as { text: string; extraCultivation?: number; nextRateBonus?: number; options?: Array<{ text?: unknown }> } | undefined
     if (!calc || !d) return '突破数据缺失'
     const extraCultivation = typeof d.extraCultivation === 'number' && Number.isFinite(d.extraCultivation) ? Math.max(0, Math.floor(d.extraCultivation)) : 0
     const nextRateBonus = typeof d.nextRateBonus === 'number' && Number.isFinite(d.nextRateBonus) ? d.nextRateBonus : 0
@@ -57,6 +57,8 @@ export function makeApplyTurn(ledger: Ledger): (ctx: FlowCtx) => string | null {
       npcMoves?: Array<{ npc: string; location: string; reason?: string }>
       npcChanges?: Array<{ npc: string; realm: string; reason: string }>
       timeCost?: number
+      dead?: boolean
+      options?: Array<{ text?: unknown }>
     } | undefined
     if (!d) return null
     const text = typeof d.text === 'string' ? d.text : ''
@@ -136,7 +138,7 @@ export function makeApplyTurn(ledger: Ledger): (ctx: FlowCtx) => string | null {
       const delta = (d as unknown as { delta: { spiritStones?: number; cultivation?: number; breakthroughDelta?: number; hpDelta?: number; pills?: Array<Record<string, unknown>>; methods?: Array<Record<string, unknown>> } }).delta
       if (typeof delta.spiritStones === 'number' && delta.spiritStones !== 0) {
         const v = Math.floor(delta.spiritStones)
-        if (v < 0 && w.stats.spiritStones + v < 0) return `灵石不足：需 ${-v}，现 ${w.stats.spiritStones}`
+        if (v < 0 && w.stats.spiritStones + v < 0) return `灵石不足：此行动需花费 ${-v} 灵石，当前仅 ${w.stats.spiritStones}——重新调用时调整 delta 使灵石净变化 ≥ 0，或改写为无需花费灵石的等效行动`
         w.stats.spiritStones += v
       }
       if (typeof delta.cultivation === 'number' && delta.cultivation !== 0) {
@@ -273,6 +275,11 @@ export function makeApplyTurn(ledger: Ledger): (ctx: FlowCtx) => string | null {
     const cap = cultivationCap(w)
     if (s.cultivation > cap) s.cultivation = cap
     if (s.cultivation < 0) s.cultivation = 0
+    // LLM 显式判死（叙事明确导致角色死亡）
+    if (d.dead === true) {
+      w.meta.dead = true
+      w.meta.deathCause = '剧情'
+    }
     ledger.saveAll()
     return null
   }

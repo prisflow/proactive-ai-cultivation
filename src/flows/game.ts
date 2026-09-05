@@ -1,7 +1,7 @@
 /**
  * @fileoverview 世界/初始化管线模块
  * @description 提供 worldGenNodes 工厂与初始化流程的注册：
- * - worldGenNodes：世界骨架 → 出身/天资生成与重试 → 合审重写 的完整子链，供 create_world 复用（NPC 由独立工具 generate_npcs 生成）
+ * - worldGenNodes：世界骨架 → 出身/天资生成与合规重试的完整子链，供 create_world 复用（NPC 由独立工具 generate_npcs 生成）
  * - registerGameFlows：注册 create_world / generate_npcs / create_character / reset_character 四个 flow
  * 每个 LLM 节点均配有 system prompt、input 构造、JSON Schema 与 assign 键，配合 rules.* 做校验落库。
  */
@@ -13,30 +13,30 @@ import type { Rules } from '../rules'
 import type { Views } from '../views'
 import { initCtx, resetWorld, resetCharacter } from './helpers'
 import { characterCreationNodes } from './character'
-import { WORLD_BASE_SCHEMA, ORIGINS_SCHEMA, TALENTS_SCHEMA, REVIEW_SCHEMA, npcBatchSchema } from './schemas'
-import { WORLD_BASE_SYSTEM, ORIGINS_SYSTEM, TALENTS_SYSTEM, ORIGINS_RETRY_SYSTEM, TALENTS_RETRY_SYSTEM, REVIEW_STARTER_COMBINED_SYSTEM, reviewStarterCombinedInput, npcSystem, buildNpcInput } from '../prompts'
+import { WORLD_BASE_SCHEMA, ORIGINS_SCHEMA, TALENTS_SCHEMA, npcBatchSchema } from './schemas'
+import { WORLD_BASE_SYSTEM, ORIGINS_SYSTEM, TALENTS_SYSTEM, npcSystem, buildNpcInput } from '../prompts'
 
 /**
  * 世界生成节点链工厂（create_world 专用）
  * @param rules - 规则集，提供 applyWorldBase/applyNpcPool/applyOrigins/applyTalents 等校验落库方法及 parseOriginPool 解析
  * @returns FlowNode[] 世界生成完整链路：世界骨架 → NPC 池 → 出身 → 天资 → 合审重写
- * @description 按序生成世界观与初始资源，含出身/天资的单次重试与评审驱动的二次重写，确保内容质量与数值合规
+ * @description 按序生成世界观与初始资源，含出身/天资的 schema 合规单次重试，确保内容质量与数值合规
  */
 export function worldGenNodes(rules: Rules): FlowNode[] {
   return [
     // [llm] 世界骨架生成：根据玩家愿望生成 world（name/regions/sects/towns/law/rumor） | prompt: WORLD_BASE_SYSTEM | schema: WORLD_BASE_SCHEMA | assign: worldBase
     {
-      type: 'llm',
+      type: 'llm' as const,
       system: WORLD_BASE_SYSTEM,
       input: (ctx: FlowCtx) => `玩家愿望：${(ctx.input as { text?: string })?.text || ''}\n请生成世界骨架（world + majorEvents）。`,
       schema: WORLD_BASE_SCHEMA,
       assign: 'worldBase',
     },
     // [static] 世界骨架落库：校验 worldBase 并写入 WorldState，失败则阻断 | 无 prompt/schema | 读 worldBase | 规则: rules.applyWorldBase
-    { type: 'static', fn: rules.applyWorldBase },
+    { type: 'static', fn: (ctx) => rules.applyWorldBase(ctx) ?? undefined },
     // [llm] 出身池生成：基于世界名+玩家初输生成 2-4 个出身（NPC 池由独立工具 generate_npcs 生成） | prompt: ORIGINS_SYSTEM | schema: ORIGINS_SCHEMA | assign: origins
     {
-      type: 'llm',
+      type: 'llm' as const,
       system: ORIGINS_SYSTEM,
       input: (ctx: FlowCtx) => {
         const w = (ctx.state._w as { stats: { world?: { name?: string; regions?: string[]; towns?: Array<{ name: string }> } } }).stats
@@ -46,62 +46,11 @@ export function worldGenNodes(rules: Rules): FlowNode[] {
       schema: ORIGINS_SCHEMA,
       assign: 'origins',
     },
-    // [static] 出身初次校验：调用 rules.applyOrigins，失败且未重试则暂存 originsError 待 condition 重试 | 无 prompt/schema | 读 origins | 规则: rules.applyOrigins
-    {
-      type: 'static',
-      fn: (ctx: FlowCtx): string | void => {
-        const err = rules.applyOrigins(ctx)
-        if (err) {
-          if (!(ctx.data as Record<string, unknown>).originsRetried) {
-            ;(ctx.data as Record<string, unknown>).originsError = err
-            return
-          }
-          return err
-        }
-        delete (ctx.data as Record<string, unknown>).originsError
-      },
-    },
-    // [condition] 出身重试分支：当 originsError 存在且未重试时进入重试子链
-    {
-      type: 'condition',
-      when: (ctx: FlowCtx) => !!(ctx.data as Record<string, unknown>).originsError && !(ctx.data as Record<string, unknown>).originsRetried,
-      then: [
-        // [static] 标记重试：置 originsRetried=true | 无 prompt/schema
-        {
-          type: 'static',
-          fn: (ctx: FlowCtx): string | void => {
-            ;(ctx.data as Record<string, unknown>).originsRetried = true
-            return
-          },
-        },
-        // [llm] 出身重试生成：携带上次校验失败反馈重写出身，约束灵石 0-50 | prompt: ORIGINS_RETRY_SYSTEM | schema: ORIGINS_SCHEMA | assign: origins（覆盖）
-        {
-          type: 'llm',
-          system: ORIGINS_RETRY_SYSTEM,
-          input: (ctx: FlowCtx) => {
-            const w = (ctx.state._w as { stats: { world?: { name?: string; regions?: string[]; towns?: Array<{ name: string }> } } }).stats
-            const wish = (ctx.input as { text?: string })?.text?.trim() ? `玩家初输：${(ctx.input as { text?: string }).text}\n` : ''
-            const fb = (ctx.data as Record<string, unknown>).originsError as string || ''
-            return `${wish}世界：${w.world?.name || ''}\n地域：${(w.world?.regions || []).join('、')}\n城镇：${(w.world?.towns || []).map((t) => t.name).join('、')}\n上次校验失败：${fb}\n请修正后重写出身（初始灵石 0-50，低阶出身勿超 50）。`
-          },
-          schema: ORIGINS_SCHEMA,
-          assign: 'origins',
-        },
-        // [static] 出身重试校验落库：再次调用 rules.applyOrigins，失败直接阻断 | 读 origins | 规则: rules.applyOrigins
-        {
-          type: 'static',
-          fn: (ctx: FlowCtx): string | void => {
-            const err = rules.applyOrigins(ctx)
-            if (err) return err
-            delete (ctx.data as Record<string, unknown>).originsError
-          },
-        },
-      ],
-      else: [],
-    },
+    // [static] 出身池落库：校验 worldBase 并写入 originPool，失败直接阻断（调度器级失败重试兜底） | 读 origins | 规则: rules.applyOrigins
+    { type: 'static', fn: (ctx) => rules.applyOrigins(ctx) ?? undefined },
     // [llm] 天资池生成：基于世界名+出身池+玩家初输生成 9 条天资（6吉3凶） | prompt: TALENTS_SYSTEM | schema: TALENTS_SCHEMA | assign: talents
     {
-      type: 'llm',
+      type: 'llm' as const,
       system: TALENTS_SYSTEM,
       input: (ctx: FlowCtx) => {
         const w = (ctx.state._w as { stats: { world?: { name?: string } } }).stats
@@ -112,122 +61,10 @@ export function worldGenNodes(rules: Rules): FlowNode[] {
       schema: TALENTS_SCHEMA,
       assign: 'talents',
     },
-    // [static] 天资初次校验：调用 rules.applyTalents，失败且未重试则暂存 talentsError | 无 prompt/schema | 读 talents | 规则: rules.applyTalents
-    {
-      type: 'static',
-      fn: (ctx: FlowCtx): string | void => {
-        const err = rules.applyTalents(ctx)
-        if (err) {
-          if (!(ctx.data as Record<string, unknown>).talentsRetried) {
-            ;(ctx.data as Record<string, unknown>).talentsError = err
-            return
-          }
-          return err
-        }
-        delete (ctx.data as Record<string, unknown>).talentsError
-      },
-    },
-    // [condition] 天资重试分支：当 talentsError 存在且未重试时进入重试子链
-    {
-      type: 'condition',
-      when: (ctx: FlowCtx) => !!(ctx.data as Record<string, unknown>).talentsError && !(ctx.data as Record<string, unknown>).talentsRetried,
-      then: [
-        // [static] 标记重试：置 talentsRetried=true | 无 prompt/schema
-        {
-          type: 'static',
-          fn: (ctx: FlowCtx): string | void => {
-            ;(ctx.data as Record<string, unknown>).talentsRetried = true
-            return
-          },
-        },
-        // [llm] 天资重试生成：携带校验失败反馈重写天资，约束灵石 0-50 | prompt: TALENTS_RETRY_SYSTEM | schema: TALENTS_SCHEMA | assign: talents（覆盖）
-        {
-          type: 'llm',
-          system: TALENTS_RETRY_SYSTEM,
-          input: (ctx: FlowCtx) => {
-            const w = (ctx.state._w as { stats: { world?: { name?: string } } }).stats
-            const origins = (rules.parseOriginPool(ctx.state._w as unknown as WorldState) as unknown as Array<Record<string, unknown>>).map((o) => o.name as string)
-            const wish = (ctx.input as { text?: string })?.text?.trim() ? `玩家初输：${(ctx.input as { text?: string }).text}\n` : ''
-            const fb = (ctx.data as Record<string, unknown>).talentsError as string || ''
-            return `${wish}世界：${w.world?.name || ''}\n出身池：${JSON.stringify(origins)}\n上次校验失败：${fb}\n请修正后重写天资（初始灵石 0-50）。`
-          },
-          schema: TALENTS_SCHEMA,
-          assign: 'talents',
-        },
-        // [static] 天资重试校验落库：再次调用 rules.applyTalents | 读 talents | 规则: rules.applyTalents
-        {
-          type: 'static',
-          fn: (ctx: FlowCtx): string | void => {
-            const err = rules.applyTalents(ctx)
-            if (err) return err
-            delete (ctx.data as Record<string, unknown>).talentsError
-          },
-        },
-      ],
-      else: [],
-    },
-    // 合审 origins+talents 一次（80分阈值）
-    // [llm] Starter 合审：对出身+天资做 80 分阈值评审，输出 score/feedback/pass | prompt: REVIEW_STARTER_COMBINED_SYSTEM | input: reviewStarterCombinedInput | schema: {score, feedback, pass} | assign: reviewStarterCombined
-    {
-      type: 'llm',
-      system: REVIEW_STARTER_COMBINED_SYSTEM,
-      input: reviewStarterCombinedInput,
-      schema: REVIEW_SCHEMA,
-      assign: 'reviewStarterCombined',
-    },
-    // [condition] 合审未通过重写分支：score<80 && pass===false 且未重试时，整体重写出身与天资
-    {
-      type: 'condition',
-      when: (ctx: FlowCtx) => {
-        const r = ctx.data.reviewStarterCombined as { score?: number; pass?: boolean } | undefined
-        return (r?.score ?? 100) < 80 && r?.pass === false && !(ctx.data as Record<string, unknown>).starterRetried
-      },
-      then: [
-        // [static] 标记合审重试：置 starterRetried=true 并保存 feedback 到 starterFeedback | 无 prompt/schema | 读 reviewStarterCombined
-        {
-          type: 'static',
-          fn: (ctx: FlowCtx): string | void => {
-            const r = ctx.data.reviewStarterCombined as { feedback?: string } | undefined
-            ;(ctx.data as Record<string, unknown>).starterRetried = true
-            ;(ctx.data as Record<string, unknown>).starterFeedback = r?.feedback || ''
-            return
-          },
-        },
-        // [llm] 出身合审重写：携带评审反馈重写出身 | prompt: ORIGINS_RETRY_SYSTEM | schema: ORIGINS_SCHEMA | assign: origins
-        {
-          type: 'llm',
-          system: ORIGINS_RETRY_SYSTEM,
-          input: (ctx: FlowCtx) => {
-            const w = (ctx.state._w as any).stats
-            const fb = (ctx.data as Record<string, unknown>).starterFeedback as string || ''
-            const wish = (ctx.input as { text?: string })?.text?.trim() ? `玩家初输：${(ctx.input as { text?: string }).text}\n` : ''
-            const towns = Array.isArray(w.world?.towns) ? (w.world.towns as Array<{ name: string }>).map((t: { name: string }) => t.name) : []
-            return `${wish}世界：${w.world?.name || ''}\n地域：${(w.world?.regions || []).join('、')}\n城镇：${towns.join('、')}\n评审反馈：${fb}\n请重写出身。`
-          },
-          schema: ORIGINS_SCHEMA,
-          assign: 'origins',
-        },
-        // [static] 出身重写落库：校验并写入 | 读 origins | 规则: rules.applyOrigins
-        { type: 'static', fn: rules.applyOrigins },
-        // [llm] 天资合审重写：携带评审反馈重写天资 | prompt: TALENTS_RETRY_SYSTEM | schema: TALENTS_SCHEMA | assign: talents
-        {
-          type: 'llm',
-          system: TALENTS_RETRY_SYSTEM,
-          input: (ctx: FlowCtx) => {
-            const w = (ctx.state._w as any).stats
-            const origins = rules.parseOriginPool(ctx.state._w as unknown as WorldState).map((o) => (o as unknown as Record<string, unknown>).name as string)
-            const fb = (ctx.data as Record<string, unknown>).starterFeedback as string || ''
-            const wish = (ctx.input as { text?: string })?.text?.trim() ? `玩家初输：${(ctx.input as { text?: string }).text}\n` : ''
-            return `${wish}世界：${w.world?.name || ''}\n出身池：${JSON.stringify(origins)}\n评审反馈：${fb}\n请重写天资。`
-          },
-          schema: TALENTS_SCHEMA,
-          assign: 'talents',
-        },
-        // [static] 天资重写落库：校验并写入 | 读 talents | 规则: rules.applyTalents
-        { type: 'static', fn: rules.applyTalents },
-      ],
-      else: [],
-    },
+    // [static] 天资池落库：校验并写入 talentPool，失败直接阻断（调度器级失败重试兜底） | 读 talents | 规则: rules.applyTalents
+    { type: 'static', fn: (ctx) => rules.applyTalents(ctx) ?? undefined },
+    // 合审评审链与合规重试分支均已移除（v0.6.0）：评审触发率低、耗时且结构臃肿；失败走调度器级兜底
+    // 0.7.0 目标：flow 节点原生支持自我评审（reviewPrompt 属性 + maxRetries 重试次数）
   ]
 }
 
@@ -267,7 +104,7 @@ export function registerGameFlows(api: PluginSetupAPI, ledger: Ledger, rules: Ru
       ...Array.from({ length: 3 }, (_, i) => {
         const idx = i + 1
         return {
-          type: 'llm',
+          type: 'llm' as const,
           system: npcSystem(idx),
           input: (ctx: FlowCtx) => buildNpcInput(ctx, idx),
           schema: npcBatchSchema('npcBatch' + idx),
@@ -275,7 +112,7 @@ export function registerGameFlows(api: PluginSetupAPI, ledger: Ledger, rules: Ru
         }
       }),
       // [static] NPC 池合并落库：三批去重后追加进 WorldState.characters | 读 npcBatch1..3 | 规则: rules.applyNpcPool
-      { type: 'static', fn: rules.applyNpcPool },
+      { type: 'static', fn: (ctx) => rules.applyNpcPool(ctx) ?? undefined },
     ],
     requireRender: false,
   })

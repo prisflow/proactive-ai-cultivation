@@ -14,6 +14,25 @@ export const AFFINITY_SCHEMA = { type: 'integer', minimum: 0, maximum: AFFINITY_
 /** 好感变化增量 schema（-20 ~ +20，配合 reason 字段） */
 export const AFFINITY_DELTA_SCHEMA = { type: 'integer', minimum: -20, maximum: 20, description: '好感变化增量 -20~20，配合 reason 说明原因' }
 
+/**
+ * 行动式提示选项（统一规则）：最多 3 条、可为 0 条。
+ * 每条必须是玩家可直接采纳执行的**具体行动**（第一人称可执行句），由两类钩子诱导生成——
+ * ①进行中/将到来的大事件（event）②在场/相关 NPC 的关系推进（npc）。
+ * 禁止纯情报/预告式表述（那是信息不是行动）。
+ */
+export const HINT_OPTIONS_SCHEMA = {
+  type: 'array', maxItems: 3,
+  description: '本回合结束后的可选行动，最多 3 条、可为 0 条。每条必须是玩家可直接采纳执行的具体行动（第一人称可执行句，如「暗中调查坊市失踪案」「邀柳师姐后山论道」「追击溃逃之敌」），由两类钩子诱导生成：①进行中/将到来的大事件（event）②在场/相关 NPC 的关系推进（npc）。禁止纯情报/预告式表述（那是信息不是行动）；行动须与玩家当前境界/处境/认知相称',
+  items: {
+    type: 'object',
+    properties: {
+      text: { type: 'string', description: '具体行动句 ≤20 字（玩家可直接采纳执行）' },
+      kind: { type: 'string', enum: ['event', 'npc'], description: 'event=由大事件诱导的行动 / npc=由 NPC 关系诱导的行动' },
+    },
+    required: ['text', 'kind'],
+  },
+}
+
 /** 术法 schema（隶属功法；纯叙事，无数值，仅描述） */
 export const TECHNIQUE_SCHEMA = {
   type: 'object',
@@ -198,10 +217,9 @@ export const npcBatchSchema = (key: string) => ({
           realm: { type: 'string', enum: [...REALM_ORDER], description: '境界：凡人=凡人；修士=练气/筑基/金丹；大修士=元婴/化神。须为原词，对应寿元凡人80/练气120/筑基200/金丹300/元婴500/化神800' },
           location: { type: 'string', minLength: 1, description: '所在地域/城镇，须为世界已有' },
           temperament: { type: 'string', description: '性情/性格' },
-          affinity: { ...AFFINITY_SCHEMA, description: '对陌生人初始好感 0-100，0-9冷淡 10-29相识 30-49友好 50-69亲密 70-89爱慕 90-100挚爱' },
           note: { type: 'string', description: '一句话档案' },
         },
-        required: ['name', 'gender', 'identity', 'realm', 'location', 'temperament', 'affinity'],
+        required: ['name', 'gender', 'identity', 'realm', 'location', 'temperament'],
       },
     },
   },
@@ -302,139 +320,80 @@ export const SWITCH_MAIN_SCHEMA = {
 }
 
 /** 主推进回合 schema（game_turn 主 LLM） */
+/** 主推进回合 schema（game_turn 的 LLM） */
 export const TURN_SCHEMA = {
   type: 'object',
   properties: {
-    text: { type: 'string', minLength: 1, description: '本回合叙事正文，第二人称短而有力' },
-    kind: { type: 'string', enum: ['日常', '机遇', '危机', '转折', '高潮'], description: '节拍类型，机遇/危机/转折/高潮必须带 eventRef' },
+    text: { type: 'string', minLength: 1, description: '本回合剧情叙事，第二人称推进' },
+    kind: { type: 'string', enum: ['日常', '机缘', '危机', '转折', '高光'], description: '剧情类型（机缘/危机/转折/高光需配 eventRef）' },
     eventRef: EVENT_REF_SCHEMA,
     delta: DELTA_SCHEMA,
-    relationships: { type: 'array', items: RELATIONSHIP_ITEM_SCHEMA, description: '好感变化列表，单轮1-2人' },
+    relationships: { type: 'array', items: RELATIONSHIP_ITEM_SCHEMA, description: '好感变化列表（挑 1-2 条）' },
     romance: ROMANCE_SCHEMA,
     cultivate: CULTIVATE_SCHEMA,
     switchMain: SWITCH_MAIN_SCHEMA,
-    breakthrough: { type: 'boolean', description: '是否突破：玩家说"突破/冲击X层/冲击瓶颈/冲击下一境"且修为已达当前境界上限（状态 stats.cap）时**必须填 true**（触发系统突破判定）；修为未满时填 false 并改为修炼' },
-    location: { type: 'string', description: '玩家本回合移动到的位置（须为世界已有地域/城镇，如"青云城"）。位置跟随剧情走：玩家行动涉及赶路/离开/到达时必填；原地停留（修炼/闭关/对话）省略。移动后"附近的人"随之变化' },
+    location: { type: 'string', description: '玩家本回合移动后的位置；默认保持（输出原值）；位置更新条件见 npcMoves 说明' },
     npcMoves: {
       type: 'array',
-      description: 'NPC 位置变更列表。**铁律：剧情中任何 NPC 出现在玩家所在地（对话/同行/相遇/在场），必须在此声明该 NPC 移动到玩家当前位置；NPC 离开则移到别处**。location 必须是玩家当前所在城镇（状态 stats.location）或世界骨架的地域/城镇，**禁止填剧情内的小地点**（如"茶楼/山洞/密林"这类记叙地点——它们不是位置，NPC 位置只认城镇/地域）。无 NPC 出场/移动时省略',
+      description: 'NPC 位置变更列表。铁律：不要让任何 NPC 无故瞬移到玩家所在地， NPCs 离开则移到别处',
       items: {
         type: 'object',
         properties: {
-          npc: { type: 'string', minLength: 1, description: 'NPC 名，须为当前状态 characters 中已有' },
-          location: { type: 'string', minLength: 1, description: '该 NPC 移动到的位置：玩家当前所在城镇（状态 stats.location）或世界骨架地域/城镇，禁止剧情内小地点' },
-          reason: { type: 'string', description: '移动原因（参考 NPC 个人背景、与玩家好感、大事件等，一句话）' },
+          npc: { type: 'string', minLength: 1, description: 'NPC 名（须为当前状态 characters 中者）' },
+          location: { type: 'string', minLength: 1, description: '该 NPC 移动到的位置（与玩家当前所在地同框架的城/地区）' },
+          reason: { type: 'string', description: '移动原因，一句话' },
         },
         required: ['npc', 'location'],
       },
     },
     npcChanges: {
       type: 'array',
-      description: '本回合 NPC 境界变化列表（剧情驱动的修为突破，如 NPC 突破、境界跌落）。通常省略，仅当剧情明确涉及 NPC 境界变化时填',
+      description: '本回合 NPC 境界变化列表（寻常省略）',
       items: {
         type: 'object',
         properties: {
-          npc: { type: 'string', minLength: 1, description: 'NPC 名，须为当前状态 characters 中已有' },
-          realm: { type: 'string', enum: [...REALM_ORDER], description: '该 NPC 变化后的境界（须为原词）' },
-          reason: { type: 'string', minLength: 1, description: '变化原因（如突破/走火入魔/跌落，结合 NPC 个人背景、剧情推进，一句话）' },
+          npc: { type: 'string', minLength: 1, description: 'NPC 名（须为当前状态 characters 中者）' },
+          realm: { type: 'string', enum: [...REALM_ORDER], description: '该 NPC 变化后的境界' },
+          reason: { type: 'string', minLength: 1, description: '变化原因一句话' },
         },
         required: ['npc', 'realm', 'reason'],
       },
     },
-    timeCost: { type: 'number', description: '本回合推动几月，0不推时间，1-数十月自定' },
-    options: {
-      type: 'array', minItems: 4, maxItems: 4,
-      description: '本回合结束后的 4 个下轮选项（玩家存活时必填；身死道消时省略）。选项必须与玄幻世界规则和玩家处境自洽：实力匹配（境界压制是铁律）、关系范围（只交互在场或有关系 NPC）、认知范围（不引入未出现的人物地点）',
-      items: {
-        type: 'object',
-        properties: {
-          text: { type: 'string', description: '选项文本≤20字' },
-          risk: { type: 'string', enum: ['无', '低', '中', '高'], description: '风险等级' },
-          branches: {
-            type: 'array', minItems: 2, maxItems: 3,
-            description: '风险项附 2-3 个分支预告（risk 为无时可省略）',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string', description: '分支 ID' },
-                title: { type: 'string', description: '分支标题≤12字' },
-                kind: { type: 'string', enum: ['battle', 'other'], description: 'battle 战斗/other 剧情' },
-                prob: { type: 'number', minimum: 0.05, maximum: 0.95, description: '概率 0.05-0.95' },
-                simpleDesc: { type: 'string', description: '简略走向≤30字' },
-                requiresTechnique: { type: 'string', description: '需已习得术法名：必须逐字取自玩家已习功法（当前状态 methods 的 techniques）中的术法名，禁止引用 NPC/他人的术法' },
-              },
-              required: ['id', 'title', 'kind', 'prob', 'simpleDesc'],
-            },
-          },
-        },
-        required: ['text', 'risk'],
-      },
-    },
+    timeCost: { type: 'number', description: '本回合推进时间（月）：0-短时，1-数十月自定' },
+    dead: { type: 'boolean', description: '仅当本回合叙事明确导致角色死亡（形神俱灭/陨落/被杀）才为 true；默认 false。死亡时 text 必须写出完整的死亡场景与结局' },
+    options: HINT_OPTIONS_SCHEMA,
   },
   required: ['text', 'kind'],
-  description: '主回合推演（game_turn）',
+  description: '本回合数据（game_turn）',
 }
 
-/** 分支 schema（choice 的 branches 项） */
-export const BRANCH_SCHEMA = {
-  type: 'object',
-  properties: {
-    id: { type: 'string', description: '分支 id' },
-    title: { type: 'string', description: '分支标题≤12字' },
-    kind: { type: 'string', enum: ['battle', 'other'], description: 'battle 战斗/other 剧情' },
-    prob: { type: 'number', minimum: 0.05, maximum: 0.95, description: '概率 0.05-0.95，和≈1' },
-    simpleDesc: { type: 'string', description: '简略走向≤30字' },
-    requiresTechnique: { type: 'string', description: '需已习得术法名：必须逐字取自玩家已习功法（当前状态 methods 的 techniques）中的术法名，禁止引用 NPC/他人的术法' },
-  },
-  required: ['id', 'title', 'kind', 'prob', 'simpleDesc'],
-  description: '单条隐式分支',
-}
-
-/** 抉择选项 schema */
-export const CHOICE_OPTION_SCHEMA = {
-  type: 'object',
-  properties: {
-    text: { type: 'string', description: '选项文本≤20字' },
-    risk: { type: 'string', enum: ['无', '低', '中', '高'], description: '风险等级' },
-    branches: { type: 'array', minItems: 2, maxItems: 3, items: BRANCH_SCHEMA, description: '风险项附 2-3 隐式分支' },
-  },
-  required: ['text', 'risk'],
-  description: '单条抉择',
-}
-
-/** 抉择 schema（固定4选项） */
-export const CHOICE_SCHEMA = {
-  type: 'object',
-  properties: {
-    options: { type: 'array', minItems: 4, maxItems: 4, items: CHOICE_OPTION_SCHEMA, description: '4个抉择' },
-  },
-  required: ['options'],
-  description: '抉择（game_turn 末）',
-}
-
-/** 战斗实写 schema（battle 分支） */
+/** 战斗实写 schema（game_battle 的 LLM） */
 export const BATTLE_SCHEMA = {
   type: 'object',
   properties: {
-    text: { type: 'string', minLength: 1, description: '战斗叙事第二人称' },
-    dead: { type: 'boolean', description: '是否身死' },
+    text: { type: 'string', minLength: 1, description: '战斗叙事，第二人称' },
+    dead: { type: 'boolean', description: '是否战死（仅当战败即死才 true）' },
     delta: DELTA_SCHEMA,
+    options: HINT_OPTIONS_SCHEMA,
   },
   required: ['text', 'dead'],
-  description: '战斗实写（confrontation）',
+  description: '战斗实写（game_battle）',
 }
 
-/** 突破 schema */
+
+/** 突破 schema（game_breakthrough 的 LLM） */
 export const BREAKTHROUGH_SCHEMA = {
   type: 'object',
   properties: {
-    text: { type: 'string', minLength: 1, description: '突破文案，必须与系统判定的 success 严格一致：成功=true 写破境成功场景；成功=false 必须写突破失败场景（瓶颈受阻/气机紊乱/反噬），绝对禁止写突破成功或境界提升' },
-    extraCultivation: { type: 'number', description: '额外修为：成功可给少量；失败给极少感悟或不给' },
-    nextRateBonus: { type: 'number', description: '下次突破率加成：成功可给；失败可给小幅（破而后立）' },
+    text: { type: 'string', minLength: 1, description: '突破的完整叙事（系统判定 success=true 写凭机缘成功突破；false 则严禁写突破成功或境界提升，只写失败后的状态：经脉震荡/走火入魔征兆/瓶颈更固等，可以禁止再次尝试突破）' },
+    extraCultivation: { type: 'number', description: '突破的修为增减；成功可给增益，失败可给小增益或不给' },
+    nextRateBonus: { type: 'number', description: '下次突破率加成；成功可给增益，失败可给小补偿' },
+    options: HINT_OPTIONS_SCHEMA,
   },
   required: ['text'],
-  description: '突破推演',
+  description: '突破结果',
 }
+
 
 /** 查询回答 schema */
 export const QUERY_SCHEMA = {
@@ -465,20 +424,8 @@ export const OPENING_SCHEMA = {
   type: 'object',
   properties: {
     text: { type: 'string', minLength: 1, description: '开场叙事 200-400字第二人称' },
-    options: { type: 'array', minItems: 2, maxItems: 4, items: CHOICE_OPTION_SCHEMA, description: '开局选项 2-4 个' },
+    options: HINT_OPTIONS_SCHEMA,
   },
   required: ['text', 'options'],
   description: '开场剧情',
-}
-
-/** 评审结果 schema */
-export const REVIEW_SCHEMA = {
-  type: 'object',
-  properties: {
-    score: { type: 'number', minimum: 0, maximum: 100, description: '评分 0-100，80及格' },
-    feedback: { type: 'string', minLength: 1, description: '反馈建议' },
-    pass: { type: 'boolean', description: '是否通过' },
-  },
-  required: ['score', 'feedback', 'pass'],
-  description: '评审结果',
 }

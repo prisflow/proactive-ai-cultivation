@@ -45,7 +45,7 @@ const plugin: Plugin = {
       role: 'sub',
       description: '修仙文字游戏：仅当用户明确想进入/开始修仙世界、玩修仙游戏、或在修仙世界内继续行动时进入；问候/闲聊/无关话题不要进入，直接文本回复。',
       initialPrompt: PROTOCOL_PROMPT,
-      toolNames: ['create_world', 'create_character', 'reset_character', 'game_turn', 'game_query', 'generate_major_events', 'generate_npcs'],
+      toolNames: ['create_world', 'create_character', 'reset_character', 'game_turn', 'game_battle', 'game_breakthrough', 'game_query', 'generate_major_events', 'generate_npcs'],
       compaction: {
         summaryPrompt: COMPACT_SYSTEM,
         summarySlot: 'game_lore',

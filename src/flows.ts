@@ -26,8 +26,8 @@ import { registerQueryFlows } from './flows/query'
 export function registerFlows(api: PluginSetupAPI, ledger: Ledger, rules: Rules, views: Views): void {
   registerGameFlows(api, ledger, rules, views)
   registerTurnFlows(api, ledger, rules, views)
-  registerMajorEventsFlows(api, ledger, rules, views)
-  registerQueryFlows(api, ledger, rules, views)
+  registerMajorEventsFlows(api, ledger, rules)
+  registerQueryFlows(api, ledger, rules)
 }
 
 /**

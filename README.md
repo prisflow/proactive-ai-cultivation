@@ -6,6 +6,10 @@ ProactiveAI 修仙世界插件：flow 驱动的文字修仙玩法。
 - 实现详解博客：[一张插件，让 AI 变身游戏：修仙插件是如何实现的](https://proactiveai.prisflow.com/blog/plugin-ecosystem-cultivation)
 - 宿主项目：[prisflow/proactive-ai-desktop](https://github.com/prisflow/proactive-ai-desktop)
 
+## Roadmap
+
+- **0.7.0**：flow 节点原生自我评审——LLM 节点支持 reviewPrompt（评审提示词属性）与 maxRetries（重试次数）配置，替代当前手搭的评审/重试分支管线（v0.6.0 已全部移除手搭评审链与合规重试分支，失败走调度器级兜底）
+
 ## 这是什么
 
 一个 ProactiveAI 桌面版的官方示例插件。用插件 API 注册了一个完整「修仙世界」子上下文：AI 旁白叙事、静态规则节点结算境界/修为/生命、UI 消息渲染状态栏与选项卡片。
