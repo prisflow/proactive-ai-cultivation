@@ -63,7 +63,9 @@ function refreshWorldSetting(api: PluginSetupAPI, ledger: Ledger, rules: Rules, 
 }
 
 export function registerTools(api: PluginSetupAPI, ledger: Ledger, rules: Rules): void {
-  const defs: NonSilentToolDef[] = [
+  /** 扩展字段：autoYield（收轮引擎化，宿主 ToolDefinition 已支持；plugin-types 0.3.0 正式收录）。 */
+  type PlotToolDef = NonSilentToolDef & { autoYield?: boolean }
+  const defs: PlotToolDef[] = [
     {
       name: 'create_world',
       description: '创建/重置世界：清空世界后生成世界骨架、出身/天资池并推送世界屏。与大事件/NPC 生成解耦，成功后必须紧跟 generate_npcs（1次，内部生成 30 人）扩充 NPC 池，再 generate_major_events 生成首五十年大事件。',
@@ -135,6 +137,7 @@ transformPrompt: (result: ToolResult) => {
         required: ['text'],
       },
       silent: false,
+      autoYield: true,
       transformPrompt: (result: ToolResult) => {
         if (!result.ok) return failPrompt('game_turn', result.error)
         const state = (result.result as { render?: unknown })?.render
@@ -165,6 +168,7 @@ transformPrompt: (result: ToolResult) => {
         required: ['text'],
       },
       silent: false,
+      autoYield: true,
       transformPrompt: (result: ToolResult) => {
         if (!result.ok) return failPrompt('game_battle', result.error)
         const state = (result.result as { render?: unknown })?.render
@@ -195,6 +199,7 @@ transformPrompt: (result: ToolResult) => {
         required: ['text'],
       },
       silent: false,
+      autoYield: true,
       transformPrompt: (result: ToolResult) => {
         if (!result.ok) return failPrompt('game_breakthrough', result.error)
         const state = (result.result as { render?: unknown })?.render
