@@ -34,14 +34,10 @@ export interface Technique {
   source: string
 }
 
-/** 丹药条目（带境界段位，用于世界观限制）。 */
-export interface Pill {
+/** 储物袋条目：物品名（可含数量，如 回春丹×2）+ 一句话简述。 */
+export interface BagItem {
   name: string
-  effectType: string
-  power: number
-  realm: Realm
-  amount: number
-  source: string
+  desc: string
 }
 
 export interface CharacterEntry {
@@ -84,7 +80,9 @@ export interface WorldStats {
   mainMethod: string | null
   /** 天资（抽中的 3 条吉凶词条，供剧情参考，不带数值） */
   talents: Array<{ name: string; description: string; temperament: string; quality: '吉' | '凶' }> | null
-  pills: Pill[]
+  /** 储物袋现状描述。 */
+  /** 储物袋条目列表（全量覆盖式更新，无增删结算）。 */
+  bag: BagItem[]
   characters: CharacterEntry[]
   /** NPC 自成长累计月数（达 tick 阈值结算一次）。 */
   npcGrowthMonths: number
@@ -123,7 +121,7 @@ export function newWorld(): WorldState {
       world: {},
       name: '', gender: '男', temperament: '',
       lifespan: 80, timeMonth: 0, location: '', hp: 100, maxHp: 100,
-      spiritStones: 0, methods: [], mainMethod: null, talents: null, pills: [],
+      spiritStones: 0, methods: [], mainMethod: null, talents: null, bag: [],
       characters: [] as CharacterEntry[], npcGrowthMonths: 0, breakBonus: 0,
     },
     majorEvents: [],

@@ -14,8 +14,9 @@ import { makeApplyBattle } from './confrontation'
 import { makeApplyDecadalEvents } from './majorEvents'
 
 // 兼容保留原样（views/flows 直接导入）
-export { stageOf, fmtTime, fmtRealm, cultivationCap, publicState, fmtStatus, worldSetting } from './state'
+export { stageOf, fmtTime, fmtRealm, cultivationCap, publicState, fmtStatus, fmtAssets, worldSetting } from './state'
 export type { Rules } from './types'
+export { calcBreakthroughRate } from './breakthrough'
 export { parseOriginPool, parseTalentPool } from './world'
 
 /**

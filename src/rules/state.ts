@@ -49,19 +49,6 @@ export function cultivationCap(w: WorldState): number {
 }
 
 /**
- * 丹药作用人话标签（展示用）。
- */
-function pillEffectLabel(effectType: string, power: number): string {
-  switch (effectType) {
-    case 'cultivation': return `修为+${power}`
-    case 'breakthrough': return `突破+${power}%`
-    case 'heal': return `回血+${power}`
-    case 'lifespan': return `延寿+${power}年`
-    default: return `${effectType}+${power}`
-  }
-}
-
-/**
  * 供 LLM 节点与工具回喂的状态摘要（NPC 池只给摘要，完整档案按需查询）。
  */
 export function publicState(w: WorldState): Record<string, unknown> {
@@ -94,7 +81,7 @@ export function publicState(w: WorldState): Record<string, unknown> {
       })(),
     },
     methods: s.methods.map((m) => ({ ...m })),
-    pills: s.pills.map((p) => ({ ...p })),
+    bag: s.bag,
     characters: {
       total: s.characters.length,
       // 全量角色名册（快变：含境界/位置/好感——这些不放慢变卡，每轮输入给模型）
@@ -137,20 +124,24 @@ export function worldSetting(w: WorldState): string {
 }
 
 /**
- * 人读状态条（首屏/Play 顶部）。
+ * 状态资产段：主修/天资/突破率/功法（状态卡结构化展示之外的文本资产；储物袋由 views 单独渲染）。
  */
-export function fmtStatus(w: WorldState): string {
+export function fmtAssets(w: WorldState): string {
   const main = w.stats.methods.find((m) => m.name === w.stats.mainMethod)
   const methodsStr = w.stats.methods.length
     ? w.stats.methods.map((m) => `${m.name}[${m.grade}]${m.name === w.stats.mainMethod ? '★主修' : ''}（${m.techniques.map((t) => `${t.name}：${t.description}`).join('；')}）`).join('、')
-    : '无'
-  const pillsStr = w.stats.pills.length
-    ? w.stats.pills.map((p) => `${p.name}×${p.amount}[${p.realm}·${pillEffectLabel(p.effectType, p.power)}]`).join('、')
     : '无'
   const talentsStr = w.stats.talents?.length ? w.stats.talents.map((t) => `${t.name}「${t.description}」`).join('、') : '无'
   const breakRate = (() => {
     // 统一走 calcBreakthroughRate（BREAKTHROUGH_RATES 基础 + 天资 + breakBonus），与掷骰一致
     return Math.round(calcBreakthroughRate(w).rate * 100)
   })()
-  return `${w.stats.name ? `名字「${w.stats.name}」` : ''}${w.stats.temperament ? `·${w.stats.temperament}` : ''} | 境界：${fmtRealm(w)} | 修为：${w.stats.cultivation}/${cultivationCap(w)} | 寿元：${Math.floor(w.stats.lifespan)}年 | 时间：${fmtTime(w)}\n灵石：${w.stats.spiritStones} | 体力：${w.stats.hp}/${w.stats.maxHp} | 地点：${w.stats.location}\n主修：${w.stats.mainMethod ? `${w.stats.mainMethod}${main ? `[${main.grade}]` : ''}` : '无'}\n天资：${talentsStr}\n突破率：${breakRate}%${w.stats.breakBonus ? `（剧情加成+${Math.round(w.stats.breakBonus*100)}%）` : ''}\n功法：${methodsStr}\n丹药：${pillsStr}`
+  return `主修：${w.stats.mainMethod ? `${w.stats.mainMethod}${main ? `[${main.grade}]` : ''}` : '无'}\n天资：${talentsStr}\n突破率：${breakRate}%${w.stats.breakBonus ? `（剧情加成+${Math.round(w.stats.breakBonus*100)}%）` : ''}\n功法：${methodsStr}`
+}
+
+/**
+ * 人读状态条（首屏/Play 顶部）。
+ */
+export function fmtStatus(w: WorldState): string {
+  return `${w.stats.name ? `名字「${w.stats.name}」` : ''}${w.stats.temperament ? `·${w.stats.temperament}` : ''} | 境界：${fmtRealm(w)} | 修为：${w.stats.cultivation}/${cultivationCap(w)} | 寿元：${Math.floor(w.stats.lifespan)}年 | 时间：${fmtTime(w)}\n灵石：${w.stats.spiritStones} | 体力：${w.stats.hp}/${w.stats.maxHp} | 地点：${w.stats.location}\n${fmtAssets(w)}`
 }

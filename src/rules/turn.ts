@@ -135,7 +135,7 @@ export function makeApplyTurn(ledger: Ledger): (ctx: FlowCtx) => string | null {
       }
     }
     if ((d as unknown as { delta?: Record<string, unknown> }).delta) {
-      const delta = (d as unknown as { delta: { spiritStones?: number; cultivation?: number; breakthroughDelta?: number; hpDelta?: number; pills?: Array<Record<string, unknown>>; methods?: Array<Record<string, unknown>> } }).delta
+      const delta = (d as unknown as { delta: { spiritStones?: number; cultivation?: number; breakthroughDelta?: number; hpDelta?: number; bag?: Array<{ name: string; desc: string }>; methods?: Array<Record<string, unknown>> } }).delta
       if (typeof delta.spiritStones === 'number' && delta.spiritStones !== 0) {
         const v = Math.floor(delta.spiritStones)
         if (v < 0 && w.stats.spiritStones + v < 0) return `灵石不足：此行动需花费 ${-v} 灵石，当前仅 ${w.stats.spiritStones}——重新调用时调整 delta 使灵石净变化 ≥ 0，或改写为无需花费灵石的等效行动`
@@ -158,50 +158,8 @@ export function makeApplyTurn(ledger: Ledger): (ctx: FlowCtx) => string | null {
           w.meta.deathCause = '重伤不治'
         }
       }
-      if (Array.isArray(delta.pills)) {
-        for (const p of delta.pills) {
-          const amt = Math.floor(Number(p.amount) || 1)
-          if (amt === 0) continue
-          if (amt > 0) {
-            const eff = String(p.effectType || 'heal')
-            const realm = String(p.realm || '凡人')
-            const existing = w.stats.pills.find((pp) => pp.name === p.name && pp.effectType === eff && (pp.realm as string) === realm)
-            if (existing) existing.amount += amt
-            else w.stats.pills.push({ name: String(p.name), effectType: eff as any, realm: realm as any, power: Number(p.power) || 10, amount: amt, source: 'delta' } as any)
-          } else {
-            const pill = w.stats.pills.find((pp) => pp.name === p.name)
-            if (!pill || pill.amount < -amt) return `丹药「${p.name}」不足（需 ${-amt}，现 ${pill?.amount ?? 0}）`
-          }
-        }
-        for (const p of delta.pills) {
-          const amt = Math.floor(Number(p.amount) || 0)
-          if (amt >= 0) continue
-          const consume = -amt
-          const pill = w.stats.pills.find((pp) => pp.name === p.name)!
-          const pillRealmIdx = REALM_ORDER.indexOf(((p.realm as string) || pill.realm) as Realm)
-          const curRealmIdx = REALM_ORDER.indexOf(s.realm)
-          let powerMult = 1
-          if (pillRealmIdx >= 0 && curRealmIdx >= 0) {
-            const diff = Math.abs(pillRealmIdx - curRealmIdx)
-            if (diff > 2) powerMult = 0
-            else if (diff === 2) powerMult = 0.5
-          }
-          const effPower = Math.round((Number((p as Record<string, unknown>).power) || Number(pill.power) || 10) * powerMult)
-          const effType = String((p as Record<string, unknown>).effectType || pill.effectType)
-          if (effType === 'cultivation') {
-            s.cultivation += effPower * consume
-          } else if (effType === 'breakthrough') {
-            s.breakBonus = (s.breakBonus ?? 0) + (effPower * consume) / 100
-          } else if (effType === 'heal') {
-            const healed = Math.min(s.maxHp - s.hp, effPower * consume)
-            s.hp += healed
-          } else if (effType === 'lifespan') {
-            s.lifespan += effPower * consume
-          }
-          pill.amount += amt
-          if (pill.amount <= 0) w.stats.pills.splice(w.stats.pills.indexOf(pill), 1)
-        }
-      }
+      // 储物袋：叙事侧给出的全量条目直接覆盖（无合并/数值结算）
+      if (Array.isArray(delta.bag)) w.stats.bag = delta.bag.map((it) => ({ name: String(it.name ?? ''), desc: String(it.desc ?? '') }))
       if (Array.isArray(delta.methods)) {
         for (const m of delta.methods) {
           const action = String(m.action || 'learn')

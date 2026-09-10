@@ -8,7 +8,7 @@ import type { Ledger, WorldState } from '../ledger'
 export function makeApplyBattle(ledger: Ledger): (ctx: FlowCtx) => string | null {
   return (ctx) => {
     const w = ctx.state._w as WorldState
-    const d = ctx.data.battle as { text?: string; dead?: boolean; delta?: { spiritStones?: number; cultivation?: number; breakthroughDelta?: number; hpDelta?: number; pills?: Array<Record<string, unknown>>; methods?: Array<Record<string, unknown>> }; options?: Array<{ text?: unknown }> } | undefined
+    const d = ctx.data.battle as { text?: string; dead?: boolean; delta?: { spiritStones?: number; cultivation?: number; breakthroughDelta?: number; hpDelta?: number; bag?: string; methods?: Array<Record<string, unknown>> }; options?: Array<{ text?: unknown }> } | undefined
     const text = typeof d?.text === 'string' && d.text ? d.text : '战斗骤然爆发'
     const hpDelta = typeof d?.delta?.hpDelta === 'number' ? Math.round(d.delta.hpDelta) : 0
     w.stats.hp += hpDelta
@@ -37,18 +37,8 @@ export function makeApplyBattle(ledger: Ledger): (ctx: FlowCtx) => string | null
       if (typeof delta.breakthroughDelta === 'number' && delta.breakthroughDelta !== 0) {
         w.stats.breakBonus = (w.stats.breakBonus ?? 0) + delta.breakthroughDelta / 100
       }
-      if (Array.isArray(delta.pills)) {
-        for (const p of delta.pills) {
-          const amt = Math.floor(Number((p as Record<string, unknown>).amount) || 0)
-          if (amt > 0) {
-            const eff = String((p as Record<string, unknown>).effectType || 'heal')
-            const realm = String((p as Record<string, unknown>).realm || '凡人')
-            const existing = w.stats.pills.find((pp) => pp.name === (p as Record<string, unknown>).name && pp.effectType === eff && (pp.realm as string) === realm)
-            if (existing) existing.amount += amt
-            else w.stats.pills.push({ name: String((p as Record<string, unknown>).name), effectType: eff as never, realm: realm as never, power: Number((p as Record<string, unknown>).power) || 10, amount: amt, source: 'delta' } as never)
-          }
-        }
-      }
+      // 储物袋：战斗侧给出的全量条目直接覆盖
+      if (Array.isArray(delta.bag)) w.stats.bag = delta.bag.map((it) => ({ name: String(it.name ?? ''), desc: String(it.desc ?? '') }))
       if (Array.isArray(delta.methods)) {
         for (const m of delta.methods) {
           const action = String((m as Record<string, unknown>).action || 'learn')

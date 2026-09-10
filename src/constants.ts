@@ -29,13 +29,6 @@ export const METHOD_GRADES: Record<string, number> = {
   凡品: 4, 黄阶: 24, 玄阶: 120, 地阶: 600, 天阶: 3000
 }
 
-/** 丹药效果类型。 */
-export const PILL_EFFECTS = ['cultivation', 'breakthrough', 'heal', 'lifespan'] as const
-export type PillEffect = (typeof PILL_EFFECTS)[number]
-
-/** 丹药无基础数值表：由专用生成节点一次性给出丹药清单与 power（正数），引擎只按效果类型结算。
- * 结算语义：cultivation=修为/粒、breakthrough=突破成功率加成(百分点，power/100 累加)、heal=回体力、lifespan=延寿年。 */
-
 /** 术法为纯叙事描述（隶属功法，1 对多；仅 name + description，无数值） */
 export const TECHNIQUE_TYPES = ['attack', 'heal'] as const // @deprecated 仅占位，术法已改为描述
 /** @deprecated 数值已废弃，保留占位 */

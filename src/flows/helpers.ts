@@ -64,6 +64,6 @@ export function resetCharacter(ctx: { state: Record<string, unknown> }): void {
   w.stats.methods = []
   w.stats.mainMethod = null
   w.stats.talents = null
-  w.stats.pills = []
+  w.stats.bag = []
   w.stats.breakBonus = 0
   }

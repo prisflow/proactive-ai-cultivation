@@ -5,7 +5,7 @@
  * - 提示词侧不再赘述字段含义，仅保留定量/定性约束（如数量、数值范围、吉凶比例）。
  */
 import {
-  AFFINITY_MAX, REALM_ORDER, PILL_EFFECTS,
+  AFFINITY_MAX, REALM_ORDER,
   METHOD_GRADES, NPC_BATCH_MIN, NPC_BATCH_MAX
 } from '../constants'
 
@@ -56,38 +56,22 @@ export const METHOD_SCHEMA = {
   description: '单部功法，含品阶与术法',
 }
 
-/** 丹药 schema（带境界段位，用于世界观限制：丹药仅在对应境界内有效） */
-export const PILL_SCHEMA = {
-  type: 'object',
-  properties: {
-    name: { type: 'string', description: '丹药名，如“聚气丹”' },
-    effectType: { type: 'string', enum: [...PILL_EFFECTS], description: '丹药效果类型：cultivation 修为/breakthrough 提高突破几率/heal 回血/lifespan 延寿' },
-    power: { type: 'number', minimum: 1, description: '丹药效力数值，正数，按境界衰减' },
-    realm: { type: 'string', enum: [...REALM_ORDER], description: '丹药对应境界，凡人/练气/筑基/金丹/元婴/化神' },
-  },
-  required: ['name', 'effectType', 'power', 'realm'],
-  description: '单粒丹药定义',
-}
-
-/** 合一得失 delta schema（正加负减，全字段覆盖，含战斗/逃离的丹药气血与修为/突破率双向） */
+/** 合一得失 delta schema（正加负减，全字段覆盖，含战斗/逃离的储物袋/气血与修为/突破率双向） */
 export const DELTA_SCHEMA = {
   type: 'object',
   properties: {
     spiritStones: { type: 'integer', description: '灵石变化，正得负耗，无上限' },
     cultivation: { type: 'integer', description: '修为变化，正得负耗，无 cap，LLM 据当前修为/上限自定' },
     breakthroughDelta: { type: 'number', description: '下次突破率变化，正加负减，无 cap，默认突破概率：凡人60%/练气20%/筑基15%/金丹10%/元婴8%/化神5%，天资吉凶会提交或降低，已通过固定计算计入' },
-    pills: {
-      type: 'array', description: '丹药得失列表，amount 正得负耗',
+    bag: {
+      type: 'array', description: '储物袋：输出变更后的完整储物袋内容，无变化则省略本字段',
       items: {
         type: 'object',
         properties: {
-          name: { type: 'string', description: '丹药名' },
-          amount: { type: 'integer', description: '正数为得负为耗，1 表示得1粒或耗1粒' },
-          effectType: { type: 'string', enum: [...PILL_EFFECTS], description: '丹药效果类型' },
-          realm: { type: 'string', enum: [...REALM_ORDER], description: '丹药境界' },
-          power: { type: 'number', minimum: 1, description: '丹药效力' },
+          name: { type: 'string', description: '物品名（可含数量，如 回春丹×2）' },
+          desc: { type: 'string', description: '一句话简述，如 伤后服用可回复体力' },
         },
-        required: ['name', 'amount', 'effectType', 'realm'],
+        required: ['name', 'desc'],
       },
     },
     methods: {
@@ -122,7 +106,17 @@ export const ORIGIN_SCHEMA = {
       properties: {
         spiritStones: { type: 'number', minimum: 0, maximum: 500, description: '初始灵石 0-50，凡人无仙缘宜0' },
         methods: { type: 'array', items: METHOD_SCHEMA, description: '初始功法列表' },
-        pills: { type: 'array', items: PILL_SCHEMA, description: '初始丹药列表' },
+        bag: {
+          type: 'array', description: '初始储物袋（0-6 件）',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: '物品名（可含数量，如 三块碎玉）' },
+              desc: { type: 'string', description: '一句话简述，如 父亲留下的唯一遗物' },
+            },
+            required: ['name', 'desc'],
+          },
+        },
       },
     },
     npcs: {

@@ -47,7 +47,7 @@ export function makeApplyCharacter(ledger: Ledger): (ctx: FlowCtx) => string | n
     s.lifespan = LIFESPAN[s.realm] ?? 80
     s.location = typeof origin?.location === 'string' && origin.location ? origin.location as string : '未知'
     s.spiritStones = 0
-    s.methods = []; s.pills = []
+    s.methods = []; s.bag = []
     const pushStarter = (starter: Record<string, unknown> | undefined, source: string): void => {
       if (!starter) return
       const stones = typeof starter.spiritStones === 'number' ? starter.spiritStones : 0
@@ -67,13 +67,8 @@ export function makeApplyCharacter(ledger: Ledger): (ctx: FlowCtx) => string | n
           source,
         })
       }
-      for (const it of (starter.pills as Array<Record<string, unknown>>) || []) {
-        const eff = String(it.effectType || 'heal')
-        const realm = String(it.realm || '凡人')
-        const existing = s.pills.find((p) => p.name === it.name && p.effectType === eff && (p.realm as string) === realm)
-        if (existing) existing.amount += 1
-        else s.pills.push({ name: String(it.name || '无名丹药'), effectType: eff as any, realm: realm as any, power: Number(it.power) || 10, amount: 1, source } as unknown as WorldState['stats']['pills'][number])
-      }
+      // 初始储物袋：叙事侧给出的条目直接采用
+      if (Array.isArray(starter.bag)) s.bag = starter.bag.map((it) => ({ name: String(it.name ?? ''), desc: String(it.desc ?? '') }))
     }
     pushStarter(origin?.starter as Record<string, unknown> | undefined, '出身')
     s.mainMethod = s.methods[0]?.name ?? null
